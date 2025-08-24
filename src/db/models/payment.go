@@ -12,4 +12,5 @@ type Payment struct {
 	DeliveryCost int    `db:"delivery_cost" json:"delivery_cost"`
 	GoodsTotal   int    `db:"goods_total" json:"goods_total"`
 	CustomFee    int    `db:"custom_fee" json:"custom_fee"`
+	OrderId      int    `db:"order_id" json:"order_id"`
 }

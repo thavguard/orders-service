@@ -3,7 +3,6 @@ package queries
 import (
 	"context"
 	"fmt"
-	"log"
 	"orders/src/db/models"
 )
 
@@ -47,7 +46,24 @@ func (service *DBService) GetPaymentById(ctx context.Context, paymentId int) (mo
 	err := service.DB.Pool.Get(&payment, query, paymentId)
 
 	if err != nil {
-		log.Fatalf("Error in GetOrderById: %v", err)
+		fmt.Printf("Error in GetPaymentById: %v\n", err)
+		return models.Payment{}, err
+	}
+
+	return payment, nil
+}
+
+func (service *DBService) GetPaymentByOrderId(ctx context.Context, paymentId int) (models.Payment, error) {
+	var payment models.Payment
+
+	query := `select *
+			from payment
+			where order_id = $1;`
+
+	err := service.DB.Pool.Get(&payment, query, paymentId)
+
+	if err != nil {
+		fmt.Printf("Error in GetPaymentById: %v\n", err)
 		return models.Payment{}, err
 	}
 

@@ -50,3 +50,20 @@ func (service *DBService) GetDeliveryById(ctx context.Context, deliveryId int) (
 
 	return delivery, nil
 }
+
+func (service *DBService) GetDeliveryByOrderId(ctx context.Context, orderId int) (models.Delivery, error) {
+	var delivery models.Delivery
+
+	query := `select *
+			from delivery
+			where order_id = $1;`
+
+	err := service.DB.Pool.Get(&delivery, query, orderId)
+
+	if err != nil {
+		log.Fatalf("Error in GetDeliveryById: %v", err)
+		return models.Delivery{}, err
+	}
+
+	return delivery, nil
+}

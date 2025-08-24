@@ -3,8 +3,8 @@ package queries
 import (
 	"context"
 	"fmt"
-	"log"
 	"orders/src/db/models"
+	"orders/src/internal/broker"
 )
 
 func (service *DBService) CreateOrder(ctx context.Context, orderDto *models.Order) (models.Order, error) {
@@ -19,7 +19,7 @@ func (service *DBService) CreateOrder(ctx context.Context, orderDto *models.Orde
 	oof_shard, delivery_id, payment_id;
     `
 
-	rows, err := service.DB.Pool.NamedQueryContext(ctx, query, &orderDto)
+	rows, err := service.DB.Pool.NamedQueryContext(ctx, query, orderDto)
 
 	if err != nil {
 		return models.Order{}, err
@@ -37,19 +37,49 @@ func (service *DBService) CreateOrder(ctx context.Context, orderDto *models.Orde
 	return order, nil
 }
 
-func (service *DBService) GetOrderById(ctx context.Context, orderId int) (models.Order, error) {
-	var order models.Order
+func (service *DBService) GetOrderById(ctx context.Context, orderId int) (*broker.OrderMessage, error) {
+	var order *broker.OrderMessage
 
-	query := `select *
-			from "order"
-			where id = $1;`
+	var orderRaw models.Order
+	query := `select * from "order" where id = $1;`
 
-	err := service.DB.Pool.Get(&order, query, orderId)
+	err := service.DB.Pool.Get(&orderRaw, query, orderId)
 
 	if err != nil {
-		log.Fatalf("Error in GetOrderById: %v", err)
-		return models.Order{}, err
+		fmt.Printf("Error in GetOrderById Pool.Select: %v\n", err)
+		return &broker.OrderMessage{}, err
 	}
+
+	delivery, err := service.GetDeliveryByOrderId(ctx, orderId)
+
+	if err != nil {
+		fmt.Printf("Error in GetDeliveryByOrderId: %v\n", err)
+		return &broker.OrderMessage{}, err
+	}
+
+	payment, err := service.GetPaymentByOrderId(ctx, orderId)
+
+	if err != nil {
+		fmt.Printf("Error in GetPaymentByOrderId: %v\n", err)
+		return &broker.OrderMessage{}, err
+	}
+
+	items, err := service.GetItemsByOrderId(ctx, orderId)
+
+	if err != nil {
+		fmt.Printf("Error in GetItemsByOrderId: %v\n", err)
+		return &broker.OrderMessage{}, err
+	}
+
+	order = &broker.OrderMessage{
+		Delivery: delivery,
+		Payment:  payment,
+		Items:    items,
+
+		Order: &orderRaw,
+	}
+
+	fmt.Println(order)
 
 	return order, nil
 }

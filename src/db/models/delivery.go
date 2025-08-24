@@ -9,4 +9,5 @@ type Delivery struct {
 	Address string `db:"address" json:"address"`
 	Region  string `db:"region" json:"region"`
 	Email   string `db:"email" json:"email"`
+	OrderId int    `db:"order_id" json:"order_id"`
 }

@@ -50,3 +50,20 @@ func (service *DBService) GetItemById(ctx context.Context, itemId int) (models.I
 
 	return item, nil
 }
+
+func (service *DBService) GetItemsByOrderId(ctx context.Context, itemId int) ([]models.Item, error) {
+	var items []models.Item
+
+	query := `select *
+			from item
+			where order_id = $1 order by id;`
+
+	err := service.DB.Pool.Select(&items, query, itemId)
+
+	if err != nil {
+		log.Fatalf("Error in GetItemById: %v", err)
+		return []models.Item{}, err
+	}
+
+	return items, nil
+}
