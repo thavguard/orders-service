@@ -30,9 +30,9 @@ run `docker compose --env-file=.env up -d`
 
 ## Описание проекта
 
-Language - **go**
-DB - **postgres**
-Driver - **pgx** + **sqlx**
-Broker - **kafka**
-HTTP - **gin**
-Cache - **redis LFU**
+Language - **go**\
+DB - **postgres**\
+Driver - **pgx** + **sqlx**\
+Broker - **kafka**\
+HTTP - **gin**\
+Cache - **redis LFU**\
