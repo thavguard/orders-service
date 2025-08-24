@@ -1,4 +1,4 @@
-package queries
+package repositories
 
 import (
 	"context"
@@ -7,7 +7,7 @@ import (
 	"orders/src/db/models"
 )
 
-func (service *DBService) CreateDelivery(ctx context.Context, deliveryDto *models.Delivery) (models.Delivery, error) {
+func (service *DBRepository) CreateDelivery(ctx context.Context, deliveryDto *models.Delivery) (models.Delivery, error) {
 	var delivery models.Delivery
 
 	query := `
@@ -34,7 +34,7 @@ RETURNING id, name, phone, zip, city, address, region, email;
 	return delivery, nil
 }
 
-func (service *DBService) GetDeliveryById(ctx context.Context, deliveryId int) (models.Delivery, error) {
+func (service *DBRepository) GetDeliveryById(ctx context.Context, deliveryId int) (models.Delivery, error) {
 	var delivery models.Delivery
 
 	query := `select *
@@ -51,7 +51,7 @@ func (service *DBService) GetDeliveryById(ctx context.Context, deliveryId int) (
 	return delivery, nil
 }
 
-func (service *DBService) GetDeliveryByOrderId(ctx context.Context, orderId int) (models.Delivery, error) {
+func (service *DBRepository) GetDeliveryByOrderId(ctx context.Context, orderId int) (models.Delivery, error) {
 	var delivery models.Delivery
 
 	query := `select *

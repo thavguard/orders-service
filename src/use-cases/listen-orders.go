@@ -5,20 +5,29 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"orders/src/db/queries"
+	"orders/src/db/repositories"
 	"orders/src/internal/broker"
+	"orders/src/mycache"
+	"strconv"
+	"time"
 
+	"github.com/go-redis/cache/v9"
 	"github.com/segmentio/kafka-go"
 )
 
-func saveOrderToDb(ctx context.Context, dbService *queries.DBService, order *broker.OrderMessage) (int, error) {
-	delivery, err := dbService.CreateDelivery(ctx, &order.Delivery)
+type ListenOrdersSerivce struct {
+	DbService *repositories.DBRepository
+	Cache     *mycache.RedisService
+}
+
+func (service *ListenOrdersSerivce) saveOrderToDb(ctx context.Context, order *broker.OrderMessage) (int, error) {
+	delivery, err := service.DbService.CreateDelivery(ctx, &order.Delivery)
 
 	if err != nil {
 		return 0, err
 	}
 
-	payment, err := dbService.CreatePayment(ctx, &order.Payment)
+	payment, err := service.DbService.CreatePayment(ctx, &order.Payment)
 
 	if err != nil {
 		return 0, err
@@ -28,7 +37,7 @@ func saveOrderToDb(ctx context.Context, dbService *queries.DBService, order *bro
 	orderDto.DeliveryId = delivery.Id
 	orderDto.PaymentId = payment.Id
 
-	orderDb, err := dbService.CreateOrder(ctx, orderDto)
+	orderDb, err := service.DbService.CreateOrder(ctx, orderDto)
 
 	if err != nil {
 		return 0, err
@@ -39,7 +48,7 @@ func saveOrderToDb(ctx context.Context, dbService *queries.DBService, order *bro
 
 		currentItem.OrderId = orderDb.Id
 
-		_, err := dbService.CreateItem(ctx, currentItem)
+		_, err := service.DbService.CreateItem(ctx, currentItem)
 
 		if err != nil {
 			return 0, err
@@ -47,11 +56,26 @@ func saveOrderToDb(ctx context.Context, dbService *queries.DBService, order *bro
 
 	}
 
-	return orderDb.Id, nil
+	orderDbId := orderDb.Id
+
+	// Save to cache
+
+	redisKey := "order_" + strconv.Itoa(orderDbId)
+
+	if err = service.Cache.Cache.Set(&cache.Item{
+		Ctx:   ctx,
+		Key:   redisKey,
+		Value: &orderDb,
+		TTL:   time.Hour,
+	}); err != nil {
+		fmt.Printf("ERROR IN REDIS LISTEN ORDER: %v\n", err)
+	}
+
+	return orderDbId, nil
 
 }
 
-func ListenOrders(ctx context.Context, dbService *queries.DBService) *kafka.Reader {
+func (service *ListenOrdersSerivce) ListenOrders(ctx context.Context) *kafka.Reader {
 	reader := broker.CreateConsumer(ctx, "orders")
 
 	go func() {
@@ -70,7 +94,9 @@ func ListenOrders(ctx context.Context, dbService *queries.DBService) *kafka.Read
 			if err != nil {
 				fmt.Printf("Error in parse JSON %v\n", err)
 			} else {
-				_, err := saveOrderToDb(ctx, dbService, obj)
+				orderId, err := service.saveOrderToDb(ctx, obj)
+
+				fmt.Printf("NEW ORDER SAVED: %v\n", orderId)
 
 				if err != nil {
 					fmt.Printf("SOME ERROR: %v\n", err)

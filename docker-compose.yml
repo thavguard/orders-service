@@ -1,4 +1,44 @@
 services:
+  redis:
+    image: redis:latest
+    container_name: redis_container
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - REDIS_USER=${REDIS_USER}
+      - REDIS_USER_PASSWORD=${REDIS_USER_PASSWORD}
+    ports:
+      - "${REDIS_PORT}:6379"
+    volumes:
+      - ./redisdata:/data
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 512M
+        reservations:
+          cpus: "0.25"
+          memory: 256M
+    command: >
+      sh -c '
+        mkdir -p /usr/local/etc/redis &&
+        echo "bind 0.0.0.0" > /usr/local/etc/redis/redis.conf &&
+        echo "requirepass $REDIS_PASSWORD" >> /usr/local/etc/redis/redis.conf &&
+        echo "maxmemory 100mb" >> /usr/local/etc/redis/redis.conf &&
+        echo "maxmemory-policy allkeys-lfu" >> /usr/local/etc/redis/redis.conf &&
+        echo "activedefrag yes" >> /usr/local/etc/redis/redis.conf &&
+        echo "save \"\"" >> /usr/local/etc/redis/redis.conf &&
+        echo "user default on nopass ~* +@all" > /usr/local/etc/redis/users.acl &&
+        echo "user $REDIS_USER on >$REDIS_USER_PASSWORD ~* +@all" >> /usr/local/etc/redis/users.acl &&
+        redis-server /usr/local/etc/redis/redis.conf --aclfile /usr/local/etc/redis/users.acl
+      '
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "$REDIS_PASSWORD", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+    tty: true
+    stdin_open: true
   kafka:
     image: apache/kafka:latest
     container_name: kafka
@@ -6,20 +46,14 @@ services:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
 
-      # Слушаем 3 канала: для контейнеров, для хоста, и контроллер
       KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:9094,CONTROLLER://0.0.0.0:9093
-      # Рекламируем соответствующие адреса
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:9094
-      # Карта протоколов
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT,CONTROLLER:PLAINTEXT
-      # Для межброкерного трафика используем PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
 
-      # KRaft
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
 
-      # Single-node настройки
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
@@ -27,10 +61,9 @@ services:
       KAFKA_NUM_PARTITIONS: 3
 
     ports:
-      - "9092:9092" # для контейнеров можно и не публиковать, но оставим
-      - "9093:9093" # контроллер (обычно наружу не нужен)
-      - "9094:9094" # подключение с хоста по localhost:9094
-
+      - "9092:9092"
+      - "9093:9093"
+      - "9094:9094"
   kafka-ui:
     image: provectuslabs/kafka-ui
 
@@ -40,7 +73,6 @@ services:
     restart: always
     environment:
       - KAFKA_CLUSTERS_0_NAME=Default
-      # важно: адрес внутри сети docker
       - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka:9092
       - KAFKA_CLUSTERS_0_PROPERTIES_SECURITY_PROTOCOL=PLAINTEXT
     depends_on:

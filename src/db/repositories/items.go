@@ -1,4 +1,4 @@
-package queries
+package repositories
 
 import (
 	"context"
@@ -7,7 +7,7 @@ import (
 	"orders/src/db/models"
 )
 
-func (service *DBService) CreateItem(ctx context.Context, itemDto *models.Item) (models.Item, error) {
+func (service *DBRepository) CreateItem(ctx context.Context, itemDto *models.Item) (models.Item, error) {
 	var item models.Item
 
 	query := `
@@ -34,7 +34,7 @@ RETURNING id, chrt_id, track_number, price, rid, name, sale, size, total_price, 
 	return item, nil
 }
 
-func (service *DBService) GetItemById(ctx context.Context, itemId int) (models.Item, error) {
+func (service *DBRepository) GetItemById(ctx context.Context, itemId int) (models.Item, error) {
 	var item models.Item
 
 	query := `select *
@@ -51,7 +51,7 @@ func (service *DBService) GetItemById(ctx context.Context, itemId int) (models.I
 	return item, nil
 }
 
-func (service *DBService) GetItemsByOrderId(ctx context.Context, itemId int) ([]models.Item, error) {
+func (service *DBRepository) GetItemsByOrderId(ctx context.Context, itemId int) ([]models.Item, error) {
 	var items []models.Item
 
 	query := `select *

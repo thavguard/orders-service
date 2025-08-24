@@ -4,16 +4,16 @@ import (
 	"context"
 	"log"
 	"net/http"
-	"orders/src/db/queries"
+	"orders/src/service"
 	"sync"
 
 	"github.com/gin-gonic/gin"
 )
 
-func NewServer(ctx context.Context, wg *sync.WaitGroup, port string, dbService *queries.DBService) *http.Server {
+func NewServer(ctx context.Context, wg *sync.WaitGroup, port string, service *service.Service) *http.Server {
 	router := gin.Default()
 
-	AddRoutes(ctx, dbService, router)
+	AddRoutes(ctx, service, router)
 
 	srv := &http.Server{
 		Addr:    port,

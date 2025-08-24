@@ -1,4 +1,4 @@
-package queries
+package repositories
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 	"orders/src/db/models"
 )
 
-func (service *DBService) CreatePayment(ctx context.Context, paymentDto *models.Payment) (models.Payment, error) {
+func (service *DBRepository) CreatePayment(ctx context.Context, paymentDto *models.Payment) (models.Payment, error) {
 	var payment models.Payment
 
 	query := `
@@ -36,7 +36,7 @@ amount, payment_dt, bank, request_id, transaction, custom_fee, goods_total;
 	return payment, nil
 }
 
-func (service *DBService) GetPaymentById(ctx context.Context, paymentId int) (models.Payment, error) {
+func (service *DBRepository) GetPaymentById(ctx context.Context, paymentId int) (models.Payment, error) {
 	var payment models.Payment
 
 	query := `select *
@@ -53,7 +53,7 @@ func (service *DBService) GetPaymentById(ctx context.Context, paymentId int) (mo
 	return payment, nil
 }
 
-func (service *DBService) GetPaymentByOrderId(ctx context.Context, paymentId int) (models.Payment, error) {
+func (service *DBRepository) GetPaymentByOrderId(ctx context.Context, paymentId int) (models.Payment, error) {
 	var payment models.Payment
 
 	query := `select *

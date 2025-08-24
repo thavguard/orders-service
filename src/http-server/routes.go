@@ -2,13 +2,13 @@ package httpserver
 
 import (
 	"context"
-	"orders/src/db/queries"
+	"orders/src/service"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
 
-func AddRoutes(ctx context.Context, dbService *queries.DBService, router *gin.Engine) {
+func AddRoutes(ctx context.Context, service *service.Service, router *gin.Engine) {
 	router.GET("/order/:orderId", func(c *gin.Context) {
 		orderId, err := strconv.Atoi(c.Param("orderId"))
 
@@ -19,7 +19,7 @@ func AddRoutes(ctx context.Context, dbService *queries.DBService, router *gin.En
 			return
 		}
 
-		order, err := dbService.GetOrderById(ctx, orderId)
+		order, err := service.GetOrderById(ctx, orderId)
 
 		if err != nil {
 			c.AbortWithStatusJSON(400, gin.H{

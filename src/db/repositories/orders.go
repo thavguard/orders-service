@@ -1,4 +1,4 @@
-package queries
+package repositories
 
 import (
 	"context"
@@ -7,7 +7,7 @@ import (
 	"orders/src/internal/broker"
 )
 
-func (service *DBService) CreateOrder(ctx context.Context, orderDto *models.Order) (models.Order, error) {
+func (service *DBRepository) CreateOrder(ctx context.Context, orderDto *models.Order) (models.Order, error) {
 	var order models.Order
 
 	query := `
@@ -37,7 +37,7 @@ func (service *DBService) CreateOrder(ctx context.Context, orderDto *models.Orde
 	return order, nil
 }
 
-func (service *DBService) GetOrderById(ctx context.Context, orderId int) (*broker.OrderMessage, error) {
+func (service *DBRepository) GetOrderById(ctx context.Context, orderId int) (*broker.OrderMessage, error) {
 	var order *broker.OrderMessage
 
 	var orderRaw models.Order

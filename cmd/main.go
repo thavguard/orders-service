@@ -4,8 +4,10 @@ import (
 	"context"
 	"log"
 	"orders/src/db"
-	"orders/src/db/queries"
+	"orders/src/db/repositories"
 	httpserver "orders/src/http-server"
+	"orders/src/mycache"
+	"orders/src/service"
 	usecases "orders/src/use-cases"
 	"os"
 	"os/signal"
@@ -41,15 +43,27 @@ func main() {
 
 	defer db.Close()
 
-	dbService := &queries.DBService{DB: db}
+	dbService := &repositories.DBRepository{DB: db}
+
+	// Инициализация redis
+	redis := mycache.InitRedis()
+
+	redisService := &service.Service{
+		Repo:    dbService,
+		MyCache: redis,
+	}
 
 	// Подписка на топик
-	reader := usecases.ListenOrders(ctx, dbService)
+	listenOrdersSerivce := &usecases.ListenOrdersSerivce{
+		DbService: dbService,
+		Cache:     redis,
+	}
+	reader := listenOrdersSerivce.ListenOrders(ctx)
 
 	httpPort := ":" + os.Getenv("HTTP_PORT")
 
 	// Создание web-server
-	srv := httpserver.NewServer(ctx, &wg, httpPort, dbService)
+	srv := httpserver.NewServer(ctx, &wg, httpPort, redisService)
 
 	// Обработка закрытия  приложения
 	<-ctx.Done()
@@ -58,6 +72,7 @@ func main() {
 	defer cancel()
 	_ = srv.Shutdown(shutdownCtx)
 	reader.Close()
+	redis.Close()
 
 	wg.Wait()
 

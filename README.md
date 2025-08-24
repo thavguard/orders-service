@@ -27,3 +27,12 @@ run `docker compose --env-file=.env up -d`
 ### Down migrations
 
 `migrate -database "$DATABASE_URL" -source file://src/db/migrations down`
+
+## Описание проекта
+
+Language - **go**
+DB - **postgres**
+Driver - **pgx** + **sqlx**
+Broker - **kafka**
+HTTP - **gin**
+Cache - **redis LFU**
