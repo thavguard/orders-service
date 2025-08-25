@@ -7,11 +7,13 @@ import (
 	"orders/src/service"
 	"sync"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
 
 func NewServer(ctx context.Context, wg *sync.WaitGroup, port string, service *service.Service) *http.Server {
 	router := gin.Default()
+	router.Use(cors.Default()) // All origins allowed by default
 
 	AddRoutes(ctx, service, router)
 

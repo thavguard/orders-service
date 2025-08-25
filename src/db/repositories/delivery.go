@@ -3,7 +3,6 @@ package repositories
 import (
 	"context"
 	"fmt"
-	"log"
 	"orders/src/db/models"
 )
 
@@ -44,7 +43,7 @@ func (service *DBRepository) GetDeliveryById(ctx context.Context, deliveryId int
 	err := service.DB.Pool.Get(&delivery, query, deliveryId)
 
 	if err != nil {
-		log.Fatalf("Error in GetDeliveryById: %v", err)
+		fmt.Printf("Error in GetDeliveryById: %v\n", err)
 		return models.Delivery{}, err
 	}
 
@@ -61,7 +60,7 @@ func (service *DBRepository) GetDeliveryByOrderId(ctx context.Context, orderId i
 	err := service.DB.Pool.Get(&delivery, query, orderId)
 
 	if err != nil {
-		log.Fatalf("Error in GetDeliveryById: %v", err)
+		fmt.Printf("Error in GetDeliveryByOrderId: %v\n", err)
 		return models.Delivery{}, err
 	}
 

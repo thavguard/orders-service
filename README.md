@@ -1,5 +1,7 @@
 # Go orders serivce (Go + PostgreSQL + Kafka)
 
+## [Ссылка на демонстрацию](https://disk.yandex.ru/i/BHgx_g9N9tc_xQ)
+
 ## Setup .env
 
 create `.env` file
