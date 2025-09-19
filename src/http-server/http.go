@@ -4,30 +4,31 @@ import (
 	"context"
 	"log"
 	"net/http"
+	orderroute "orders/src/http-server/order-route"
 	"orders/src/service"
-	"sync"
+	"os"
+	"time"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
 
-func NewServer(ctx context.Context, wg *sync.WaitGroup, port string, service *service.Service) *http.Server {
+func NewServer(ctx context.Context, orderService *service.OrderService) *http.Server {
+	httpPort := ":" + os.Getenv("HTTP_PORT")
+
 	router := gin.Default()
 	router.Use(cors.Default()) // All origins allowed by default
 
-	AddRoutes(ctx, service, router)
+	orderroute.AddOrderRoutes(ctx, router, orderService)
 
 	srv := &http.Server{
-		Addr:    port,
-		Handler: router.Handler(),
+		Addr:              httpPort,
+		Handler:           router.Handler(),
+		ReadHeaderTimeout: 5 * time.Second,
 	}
 
-	wg.Add(1)
-
 	go func() {
-		defer wg.Done()
-
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		if err := srv.ListenAndServe(); err != nil {
 			log.Printf("http: %v", err)
 		}
 

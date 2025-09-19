@@ -3,10 +3,48 @@ package repositories
 import (
 	"context"
 	"fmt"
+	"orders/src/db"
 	"orders/src/db/models"
+	"orders/src/myretry"
+
+	"github.com/jmoiron/sqlx"
+	"github.com/sethvargo/go-retry"
 )
 
-func (service *DBRepository) CreateItem(ctx context.Context, itemDto *models.Item) (models.Item, error) {
+type ItemRepository interface {
+	CreateItem(ctx context.Context, itemDto *models.Item) (models.Item, error)
+	GetItemByID(ctx context.Context, itemID int) (models.Item, error)
+	GetItemsByOrderID(ctx context.Context, orderID int) ([]models.Item, error)
+}
+
+type itemRepo struct {
+	pool *sqlx.DB
+	b    func() retry.Backoff
+}
+
+func NewItemRepo(pool *sqlx.DB) ItemRepository {
+	b := myretry.NewBackofFactory()
+	return &itemRepo{pool: pool, b: b}
+}
+
+func (repo *itemRepo) CreateItem(ctx context.Context, itemDto *models.Item) (models.Item, error) {
+	var item models.Item
+	var err error
+
+	err = retry.Do(ctx, repo.b(), func(ctx context.Context) error {
+		item, err = repo.createItem(ctx, itemDto)
+
+		if db.IsRetryable(err) {
+			return retry.RetryableError(err)
+		}
+
+		return err
+	})
+
+	return item, err
+}
+
+func (repo *itemRepo) createItem(ctx context.Context, itemDto *models.Item) (models.Item, error) {
 	var item models.Item
 
 	query := `
@@ -15,7 +53,7 @@ VALUES (:chrt_id, :track_number, :price, :rid, :name, :sale, :size, :total_price
 RETURNING id, chrt_id, track_number, price, rid, name, sale, size, total_price, nm_id, brand, status, order_id;
     `
 
-	rows, err := service.DB.Pool.NamedQueryContext(ctx, query, &itemDto)
+	rows, err := repo.pool.NamedQueryContext(ctx, query, &itemDto)
 
 	if err != nil {
 		return models.Item{}, err
@@ -33,35 +71,71 @@ RETURNING id, chrt_id, track_number, price, rid, name, sale, size, total_price, 
 	return item, nil
 }
 
-func (service *DBRepository) GetItemById(ctx context.Context, itemId int) (models.Item, error) {
+func (repo *itemRepo) GetItemByID(ctx context.Context, itemID int) (models.Item, error) {
+	var item models.Item
+	var err error
+
+	err = retry.Do(ctx, repo.b(), func(ctx context.Context) error {
+
+		item, err = repo.getItemByID(ctx, itemID)
+
+		if db.IsRetryable(err) {
+			return retry.RetryableError(err)
+		}
+
+		return err
+	})
+
+	return item, err
+}
+
+func (repo *itemRepo) getItemByID(ctx context.Context, itemID int) (models.Item, error) {
 	var item models.Item
 
 	query := `select *
 			from item
 			where id = $1;`
 
-	err := service.DB.Pool.Get(&item, query, itemId)
+	err := repo.pool.GetContext(ctx, &item, query, itemID)
 
 	if err != nil {
-		fmt.Printf("Error in GetItemById: %v\n", err)
-		return models.Item{}, err
+		fmt.Printf("Error in GetItemByID: %v\n", err)
+		return item, err
 	}
 
 	return item, nil
 }
 
-func (service *DBRepository) GetItemsByOrderId(ctx context.Context, itemId int) ([]models.Item, error) {
+func (repo *itemRepo) GetItemsByOrderID(ctx context.Context, orderID int) ([]models.Item, error) {
+	var items []models.Item
+	var err error
+
+	err = retry.Do(ctx, repo.b(), func(ctx context.Context) error {
+		items, err = repo.getItemsByOrderID(ctx, orderID)
+
+		if db.IsRetryable(err) {
+			return retry.RetryableError(err)
+		}
+
+		return err
+
+	})
+
+	return items, err
+}
+
+func (repo *itemRepo) getItemsByOrderID(ctx context.Context, orderID int) ([]models.Item, error) {
 	var items []models.Item
 
 	query := `select *
 			from item
 			where order_id = $1 order by id;`
 
-	err := service.DB.Pool.Select(&items, query, itemId)
+	err := repo.pool.SelectContext(ctx, &items, query, orderID)
 
 	if err != nil {
-		fmt.Printf("Error in GetItemsByOrderId: %v\n", err)
-		return []models.Item{}, err
+		fmt.Printf("Error in GetItemsByOrderID: %v\n", err)
+		return items, err
 	}
 
 	return items, nil

@@ -1,12 +1,20 @@
-# Go orders serivce (Go + PostgreSQL + Kafka)
+# Go orders serivce (Go + PostgreSQL + Kafka + Redis)
 
 ## [Ссылка на демонстрацию](https://disk.yandex.ru/i/BHgx_g9N9tc_xQ)
+
+## Заполнение данных
+
+[Репозиторий с генератором](https://github.com/thavguard/orders-wb-generator)
 
 ## Setup .env
 
 create `.env` file
 
 run `docker compose --env-file=.env up -d`
+
+## Linter
+
+`golangci-lint run`
 
 ## Working with migrations
 
@@ -16,25 +24,25 @@ run `docker compose --env-file=.env up -d`
 
 В .env создать переменную `DATABASE_URL`
 
-после создания / обновления .env выполнить команду `export $(grep -v '^#' .env | xargs)`
-
 ### Create migrations
 
-`migrate create -ext sql -dir src/db/migrations -seq [migration name]`
+`make create-migration name=[name]`
 
 ### Up migrations
 
-`migrate -database "$DATABASE_URL" -source file://src/db/migrations up`
+`make up-migration`
 
 ### Down migrations
 
-`migrate -database "$DATABASE_URL" -source file://src/db/migrations down`
+`make down-migration`
 
 ## Описание проекта
 
 Language - **go**\
 DB - **postgres**\
 Driver - **pgx** + **sqlx**\
-Broker - **kafka**\
+Broker + DLQ - **kafka**\
 HTTP - **gin**\
 Cache - **redis LFU**\
+Validation - **tags validator**\
+Retry - **sethvargo/go-retry**\

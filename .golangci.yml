@@ -1,0 +1,8 @@
+linters:
+  enable:
+    - staticcheck
+    - gosec
+    - errcheck
+    - revive
+run:
+  timeout: 5m

@@ -3,10 +3,49 @@ package repositories
 import (
 	"context"
 	"fmt"
+	"orders/src/db"
 	"orders/src/db/models"
+	"orders/src/myretry"
+
+	"github.com/jmoiron/sqlx"
+	"github.com/sethvargo/go-retry"
 )
 
-func (service *DBRepository) CreatePayment(ctx context.Context, paymentDto *models.Payment) (models.Payment, error) {
+type PaymentRepository interface {
+	CreatePayment(ctx context.Context, paymentDto *models.Payment) (models.Payment, error)
+	GetPaymentByID(ctx context.Context, paymentID int) (models.Payment, error)
+	GetPaymentByOrderID(ctx context.Context, orderID int) (models.Payment, error)
+}
+
+type paymentRepo struct {
+	pool *sqlx.DB
+	b    func() retry.Backoff
+}
+
+func NewPaymentRepo(pool *sqlx.DB) PaymentRepository {
+	b := myretry.NewBackofFactory()
+	return &paymentRepo{pool: pool, b: b}
+}
+
+func (repo *paymentRepo) CreatePayment(ctx context.Context, paymentDto *models.Payment) (models.Payment, error) {
+	var payment models.Payment
+	var err error
+
+	err = retry.Do(ctx, repo.b(), func(ctx context.Context) error {
+
+		payment, err = repo.createPayment(ctx, paymentDto)
+
+		if db.IsRetryable(err) {
+			return retry.RetryableError(err)
+		}
+
+		return err
+	})
+
+	return payment, err
+}
+
+func (repo *paymentRepo) createPayment(ctx context.Context, paymentDto *models.Payment) (models.Payment, error) {
 	var payment models.Payment
 
 	query := `
@@ -18,7 +57,7 @@ RETURNING id, currency, delivery_cost, provider,
 amount, payment_dt, bank, request_id, transaction, custom_fee, goods_total;
     `
 
-	rows, err := service.DB.Pool.NamedQueryContext(ctx, query, &paymentDto)
+	rows, err := repo.pool.NamedQueryContext(ctx, query, &paymentDto)
 
 	if err != nil {
 		return models.Payment{}, err
@@ -36,34 +75,70 @@ amount, payment_dt, bank, request_id, transaction, custom_fee, goods_total;
 	return payment, nil
 }
 
-func (service *DBRepository) GetPaymentById(ctx context.Context, paymentId int) (models.Payment, error) {
+func (repo *paymentRepo) GetPaymentByID(ctx context.Context, paymentID int) (models.Payment, error) {
+	var payment models.Payment
+	var err error
+
+	err = retry.Do(ctx, repo.b(), func(ctx context.Context) error {
+
+		payment, err = repo.getPaymentByID(ctx, paymentID)
+
+		if db.IsRetryable(err) {
+			return retry.RetryableError(err)
+		}
+
+		return err
+	})
+
+	return payment, err
+}
+
+func (repo *paymentRepo) getPaymentByID(ctx context.Context, paymentID int) (models.Payment, error) {
 	var payment models.Payment
 
 	query := `select *
 			from payment
 			where id = $1;`
 
-	err := service.DB.Pool.Get(&payment, query, paymentId)
+	err := repo.pool.GetContext(ctx, &payment, query, paymentID)
 
 	if err != nil {
-		fmt.Printf("Error in GetPaymentById: %v\n", err)
+		fmt.Printf("Error in GetPaymentByID: %v\n", err)
 		return models.Payment{}, err
 	}
 
 	return payment, nil
 }
 
-func (service *DBRepository) GetPaymentByOrderId(ctx context.Context, paymentId int) (models.Payment, error) {
+func (repo *paymentRepo) GetPaymentByOrderID(ctx context.Context, orderID int) (models.Payment, error) {
+	var payment models.Payment
+	var err error
+
+	err = retry.Do(ctx, repo.b(), func(ctx context.Context) error {
+
+		payment, err = repo.getPaymentByOrderID(ctx, orderID)
+
+		if db.IsRetryable(err) {
+			return retry.RetryableError(err)
+		}
+
+		return err
+	})
+
+	return payment, err
+}
+
+func (repo *paymentRepo) getPaymentByOrderID(ctx context.Context, orderID int) (models.Payment, error) {
 	var payment models.Payment
 
 	query := `select *
 			from payment
 			where order_id = $1;`
 
-	err := service.DB.Pool.Get(&payment, query, paymentId)
+	err := repo.pool.GetContext(ctx, &payment, query, orderID)
 
 	if err != nil {
-		fmt.Printf("Error in GetPaymentById: %v\n", err)
+		fmt.Printf("Error in GetPaymentByID: %v\n", err)
 		return models.Payment{}, err
 	}
 

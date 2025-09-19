@@ -6,6 +6,10 @@
     <file url="file://$APPLICATION_CONFIG_DIR$/consoles/db/c0ace631-c15e-4139-bf8f-56e1eb6bf721/console_2.sql" value="c0ace631-c15e-4139-bf8f-56e1eb6bf721" />
     <file url="file://$APPLICATION_CONFIG_DIR$/consoles/db/c0ace631-c15e-4139-bf8f-56e1eb6bf721/console_3.sql" value="c0ace631-c15e-4139-bf8f-56e1eb6bf721" />
     <file url="file://$APPLICATION_CONFIG_DIR$/consoles/db/c0ace631-c15e-4139-bf8f-56e1eb6bf721/console_4.sql" value="c0ace631-c15e-4139-bf8f-56e1eb6bf721" />
+    <file url="file://$APPLICATION_CONFIG_DIR$/consoles/db/c0ace631-c15e-4139-bf8f-56e1eb6bf721/console_5.sql" value="c0ace631-c15e-4139-bf8f-56e1eb6bf721" />
+    <file url="file://$APPLICATION_CONFIG_DIR$/consoles/db/c0ace631-c15e-4139-bf8f-56e1eb6bf721/console_6.sql" value="c0ace631-c15e-4139-bf8f-56e1eb6bf721" />
+    <file url="file://$APPLICATION_CONFIG_DIR$/consoles/db/c0ace631-c15e-4139-bf8f-56e1eb6bf721/console_7.sql" value="c0ace631-c15e-4139-bf8f-56e1eb6bf721" />
+    <file url="file://$APPLICATION_CONFIG_DIR$/consoles/db/c0ace631-c15e-4139-bf8f-56e1eb6bf721/console_8.sql" value="c0ace631-c15e-4139-bf8f-56e1eb6bf721" />
     <file url="file://$PROJECT_DIR$/src/db/migrations/000001_create_orders_table.down.sql" value="c0ace631-c15e-4139-bf8f-56e1eb6bf721" />
     <file url="file://$PROJECT_DIR$/src/db/migrations/000001_create_orders_table.up.sql" value="c0ace631-c15e-4139-bf8f-56e1eb6bf721" />
   </component>
