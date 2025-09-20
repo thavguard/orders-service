@@ -8,6 +8,7 @@ import (
 	"orders/src/db"
 	"orders/src/db/repositories"
 	httpserver "orders/src/http-server"
+	"orders/src/metrics"
 	"orders/src/mycache"
 	"orders/src/service"
 	customvalidator "orders/src/utils/custom-validator"
@@ -48,14 +49,17 @@ func main() {
 		log.Fatalf("failed to connect to database: %v", err)
 	}
 
+	// Метрики
+	met := metrics.New(nil, nil)
+
 	// Инициализация репозиториев
-	orderRepo := repositories.NewOrderRepo(db.Pool)
-	itemRepo := repositories.NewItemRepo(db.Pool)
-	paymentRepo := repositories.NewPaymentRepo(db.Pool)
-	deliveryRepo := repositories.NewDeliveryRepo(db.Pool)
+	orderRepo := repositories.NewOrderRepo(db.Pool, met)
+	itemRepo := repositories.NewItemRepo(db.Pool, met)
+	paymentRepo := repositories.NewPaymentRepo(db.Pool, met)
+	deliveryRepo := repositories.NewDeliveryRepo(db.Pool, met)
 
 	// Инициализация redis
-	redis := mycache.NewRedis(time.Minute)
+	redis := mycache.NewRedis(met, time.Minute)
 
 	// Инициализация сервисов
 	ordersService := service.NewOrderService(orderRepo, redis, Validate)
@@ -64,10 +68,10 @@ func main() {
 	deliveryService := service.NewDeliveryService(deliveryRepo, redis, Validate)
 
 	// Создание web-server
-	srv := httpserver.NewServer(ctx, ordersService)
+	srv := httpserver.NewServer(ctx, met, ordersService)
 
 	// Подписка на топик
-	listener := consumers.NewOrderConsumer(ordersService, deliveryService, itemService, paymentService)
+	listener := consumers.NewOrderConsumer(met, ordersService, deliveryService, itemService, paymentService)
 	listener.Run(ctx)
 
 	// Обработка закрытия  приложения

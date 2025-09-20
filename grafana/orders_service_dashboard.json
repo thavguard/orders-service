@@ -1,0 +1,214 @@
+{
+    "annotations": {
+        "list": []
+    },
+    "panels": [
+        {
+            "type": "graph",
+            "title": "HTTP Requests Count",
+            "targets": [
+                {
+                    "expr": "http_requests_total",
+                    "legendFormat": "{{handler}} - {{method}} - {{code}}",
+                    "refId": "A"
+                }
+            ],
+            "xaxis": {
+                "mode": "time"
+            },
+            "yaxes": [
+                {
+                    "format": "short"
+                },
+                {
+                    "format": "short"
+                }
+            ]
+        },
+        {
+            "type": "graph",
+            "title": "HTTP Request Duration",
+            "targets": [
+                {
+                    "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[1m])) by (le, handler))",
+                    "legendFormat": "{{handler}}",
+                    "refId": "B"
+                }
+            ],
+            "xaxis": {
+                "mode": "time"
+            },
+            "yaxes": [
+                {
+                    "format": "s"
+                },
+                {
+                    "format": "short"
+                }
+            ]
+        },
+        {
+            "type": "graph",
+            "title": "In-flight HTTP Requests",
+            "targets": [
+                {
+                    "expr": "http_inflight_requests",
+                    "legendFormat": "inflight",
+                    "refId": "C"
+                }
+            ],
+            "xaxis": {
+                "mode": "time"
+            },
+            "yaxes": [
+                {
+                    "format": "short"
+                },
+                {
+                    "format": "short"
+                }
+            ]
+        },
+        {
+            "type": "graph",
+            "title": "DB Query Duration",
+            "targets": [
+                {
+                    "expr": "histogram_quantile(0.95, sum(rate(db_query_duration_seconds_bucket[1m])) by (le, query))",
+                    "legendFormat": "{{query}}",
+                    "refId": "D"
+                }
+            ],
+            "xaxis": {
+                "mode": "time"
+            },
+            "yaxes": [
+                {
+                    "format": "s"
+                },
+                {
+                    "format": "short"
+                }
+            ]
+        },
+        {
+            "type": "graph",
+            "title": "DB Query Errors",
+            "targets": [
+                {
+                    "expr": "db_query_errors_total",
+                    "legendFormat": "{{query}}",
+                    "refId": "E"
+                }
+            ],
+            "xaxis": {
+                "mode": "time"
+            },
+            "yaxes": [
+                {
+                    "format": "short"
+                },
+                {
+                    "format": "short"
+                }
+            ]
+        },
+        {
+            "type": "graph",
+            "title": "Kafka Messages Consumed",
+            "targets": [
+                {
+                    "expr": "kafka_messages_consumed_total",
+                    "legendFormat": "{{topic}} - {{outcome}}",
+                    "refId": "F"
+                }
+            ],
+            "xaxis": {
+                "mode": "time"
+            },
+            "yaxes": [
+                {
+                    "format": "short"
+                },
+                {
+                    "format": "short"
+                }
+            ]
+        },
+        {
+            "type": "graph",
+            "title": "Kafka Messages DLQ",
+            "targets": [
+                {
+                    "expr": "kafka_messages_dlq_total",
+                    "legendFormat": "{{topic}}",
+                    "refId": "G"
+                }
+            ],
+            "xaxis": {
+                "mode": "time"
+            },
+            "yaxes": [
+                {
+                    "format": "short"
+                },
+                {
+                    "format": "short"
+                }
+            ]
+        },
+        {
+            "type": "graph",
+            "title": "Kafka Consumer Retries",
+            "targets": [
+                {
+                    "expr": "kafka_consumer_retries_total",
+                    "legendFormat": "{{topic}}",
+                    "refId": "H"
+                }
+            ],
+            "xaxis": {
+                "mode": "time"
+            },
+            "yaxes": [
+                {
+                    "format": "short"
+                },
+                {
+                    "format": "short"
+                }
+            ]
+        },
+        {
+            "type": "graph",
+            "title": "Cache Hits vs Misses",
+            "targets": [
+                {
+                    "expr": "cache_hits_total",
+                    "legendFormat": "hits",
+                    "refId": "I"
+                },
+                {
+                    "expr": "cache_misses_total",
+                    "legendFormat": "misses",
+                    "refId": "J"
+                }
+            ],
+            "xaxis": {
+                "mode": "time"
+            },
+            "yaxes": [
+                {
+                    "format": "short"
+                },
+                {
+                    "format": "short"
+                }
+            ]
+        }
+    ],
+    "title": "Orders Service Metrics",
+    "timezone": "browser",
+    "schemaVersion": 30,
+    "version": 1
+}

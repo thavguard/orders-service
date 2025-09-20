@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"orders/src/db"
 	"orders/src/db/models"
+	"orders/src/metrics"
 	"orders/src/myretry"
+	"time"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/sethvargo/go-retry"
@@ -18,13 +20,14 @@ type ItemRepository interface {
 }
 
 type itemRepo struct {
-	pool *sqlx.DB
-	b    func() retry.Backoff
+	pool    *sqlx.DB
+	b       func() retry.Backoff
+	metrics *metrics.Metrics
 }
 
-func NewItemRepo(pool *sqlx.DB) ItemRepository {
+func NewItemRepo(pool *sqlx.DB, metrics *metrics.Metrics) ItemRepository {
 	b := myretry.NewBackofFactory()
-	return &itemRepo{pool: pool, b: b}
+	return &itemRepo{pool: pool, b: b, metrics: metrics}
 }
 
 func (repo *itemRepo) CreateItem(ctx context.Context, itemDto *models.Item) (models.Item, error) {
@@ -45,6 +48,8 @@ func (repo *itemRepo) CreateItem(ctx context.Context, itemDto *models.Item) (mod
 }
 
 func (repo *itemRepo) createItem(ctx context.Context, itemDto *models.Item) (models.Item, error) {
+	start := time.Now()
+
 	var item models.Item
 
 	query := `
@@ -55,7 +60,12 @@ RETURNING id, chrt_id, track_number, price, rid, name, sale, size, total_price, 
 
 	rows, err := repo.pool.NamedQueryContext(ctx, query, &itemDto)
 
+	lat := time.Since(start).Seconds()
+	repo.metrics.DBQueryDuration.WithLabelValues("create_item", "item_service").Observe(lat)
+
 	if err != nil {
+		repo.metrics.DBQueryErrors.WithLabelValues("create_item", "item_service").Inc()
+
 		return models.Item{}, err
 	}
 
@@ -90,6 +100,9 @@ func (repo *itemRepo) GetItemByID(ctx context.Context, itemID int) (models.Item,
 }
 
 func (repo *itemRepo) getItemByID(ctx context.Context, itemID int) (models.Item, error) {
+
+	start := time.Now()
+
 	var item models.Item
 
 	query := `select *
@@ -98,7 +111,12 @@ func (repo *itemRepo) getItemByID(ctx context.Context, itemID int) (models.Item,
 
 	err := repo.pool.GetContext(ctx, &item, query, itemID)
 
+	lat := time.Since(start).Seconds()
+	repo.metrics.DBQueryDuration.WithLabelValues("get_item_by_id", "item_service").Observe(lat)
+
 	if err != nil {
+		repo.metrics.DBQueryErrors.WithLabelValues("get_item_by_id", "item_service").Inc()
+
 		fmt.Printf("Error in GetItemByID: %v\n", err)
 		return item, err
 	}
@@ -125,6 +143,9 @@ func (repo *itemRepo) GetItemsByOrderID(ctx context.Context, orderID int) ([]mod
 }
 
 func (repo *itemRepo) getItemsByOrderID(ctx context.Context, orderID int) ([]models.Item, error) {
+
+	start := time.Now()
+
 	var items []models.Item
 
 	query := `select *
@@ -133,7 +154,12 @@ func (repo *itemRepo) getItemsByOrderID(ctx context.Context, orderID int) ([]mod
 
 	err := repo.pool.SelectContext(ctx, &items, query, orderID)
 
+	lat := time.Since(start).Seconds()
+	repo.metrics.DBQueryDuration.WithLabelValues("get_item_by_order_id", "item_service").Observe(lat)
+
 	if err != nil {
+		repo.metrics.DBQueryErrors.WithLabelValues("get_item_by_order_id", "item_service").Inc()
+
 		fmt.Printf("Error in GetItemsByOrderID: %v\n", err)
 		return items, err
 	}

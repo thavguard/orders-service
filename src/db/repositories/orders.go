@@ -7,6 +7,7 @@ import (
 	"orders/src/broker"
 	"orders/src/db"
 	"orders/src/db/models"
+	"orders/src/metrics"
 	"orders/src/myretry"
 	"time"
 
@@ -20,16 +21,18 @@ type OrderRepository interface {
 }
 
 type orderRepo struct {
-	pool *sqlx.DB
-	b    func() retry.Backoff
+	pool    *sqlx.DB
+	b       func() retry.Backoff
+	metrics *metrics.Metrics
 }
 
-func NewOrderRepo(pool *sqlx.DB) OrderRepository {
+func NewOrderRepo(pool *sqlx.DB, metrics *metrics.Metrics) OrderRepository {
 	b := myretry.NewBackofFactory()
-	return &orderRepo{pool: pool, b: b}
+	return &orderRepo{pool: pool, b: b, metrics: metrics}
 }
 
 func (repo *orderRepo) CreateOrder(ctx context.Context, orderDto *models.Order) (models.Order, error) {
+
 	var order models.Order
 	var err error
 
@@ -48,6 +51,9 @@ func (repo *orderRepo) CreateOrder(ctx context.Context, orderDto *models.Order) 
 }
 
 func (repo *orderRepo) createOrder(ctx context.Context, orderDto *models.Order) (models.Order, error) {
+
+	start := time.Now()
+
 	var order models.Order
 
 	query := `
@@ -61,7 +67,12 @@ func (repo *orderRepo) createOrder(ctx context.Context, orderDto *models.Order) 
 
 	rows, err := repo.pool.NamedQueryContext(ctx, query, orderDto)
 
+	lat := time.Since(start).Seconds()
+	repo.metrics.DBQueryDuration.WithLabelValues("create_order", "order_service").Observe(lat)
+
 	if err != nil {
+		repo.metrics.DBQueryErrors.WithLabelValues("create_order", "order_service").Inc()
+
 		return models.Order{}, err
 	}
 
@@ -96,6 +107,8 @@ func (repo *orderRepo) GetOrderByID(ctx context.Context, orderID int) (*broker.O
 }
 
 func (repo *orderRepo) getOrderByID(ctx context.Context, orderID int) (*broker.OrderMessage, error) {
+	start := time.Now()
+
 	type orderRow struct {
 		// Order
 		OrderID           int       `db:"order_id"`
@@ -105,15 +118,15 @@ func (repo *orderRepo) getOrderByID(ctx context.Context, orderID int) (*broker.O
 		Locale            string    `db:"order_locale"`
 		InternalSignature string    `db:"order_internal_signature"`
 		CustomerID        string    `db:"order_customer_id"`
-		DeliveryID        int       `db:"order_delivery_id"`
-		PaymentID         int       `db:"order_payment_id"`
+		OrderDeliveryID   int       `db:"order_delivery_id"`
+		OrderPaymentID    int       `db:"order_payment_id"`
 		Shardkey          string    `db:"order_shardkey"`
 		SmID              int       `db:"order_sm_id"`
 		DateCreated       time.Time `db:"order_date_created"`
 		OofShard          string    `db:"order_oof_shard"`
 
 		// Payment
-		PaymentID_   sql.NullInt64  `db:"payment_id"`
+		PaymentID    sql.NullInt64  `db:"payment_id"`
 		Transaction  sql.NullString `db:"payment_transaction"`
 		RequestID    sql.NullString `db:"payment_request_id"`
 		Currency     sql.NullString `db:"payment_currency"`
@@ -126,7 +139,7 @@ func (repo *orderRepo) getOrderByID(ctx context.Context, orderID int) (*broker.O
 		CustomFee    sql.NullInt64  `db:"payment_custom_fee"`
 
 		// Delivery
-		DeliveryID_  sql.NullInt64  `db:"delivery_id"`
+		DeliveryID   sql.NullInt64  `db:"delivery_id"`
 		DeliveryName sql.NullString `db:"delivery_name"`
 		Phone        sql.NullString `db:"delivery_phone"`
 		Zip          sql.NullString `db:"delivery_zip"`
@@ -208,7 +221,13 @@ func (repo *orderRepo) getOrderByID(ctx context.Context, orderID int) (*broker.O
     ORDER BY i.id;`
 
 	var rows []orderRow
-	if err := repo.pool.SelectContext(ctx, &rows, query, orderID); err != nil {
+	err := repo.pool.SelectContext(ctx, &rows, query, orderID)
+
+	lat := time.Since(start).Seconds()
+	repo.metrics.DBQueryDuration.WithLabelValues("get_order_by_id", "order_service").Observe(lat)
+
+	if err != nil {
+		repo.metrics.DBQueryErrors.WithLabelValues("get_order_by_id", "order_service").Inc()
 		return nil, err
 	}
 
@@ -220,7 +239,7 @@ func (repo *orderRepo) getOrderByID(ctx context.Context, orderID int) (*broker.O
 
 	scanPayment := func(r orderRow) models.Payment {
 		return models.Payment{
-			ID:           int(r.PaymentID_.Int64),
+			ID:           int(r.PaymentID.Int64),
 			Transaction:  r.Transaction.String,
 			RequestID:    r.RequestID.String,
 			Currency:     r.Currency.String,
@@ -231,13 +250,13 @@ func (repo *orderRepo) getOrderByID(ctx context.Context, orderID int) (*broker.O
 			DeliveryCost: int(r.DeliveryCost.Int64),
 			GoodsTotal:   int(r.GoodsTotal.Int64),
 			CustomFee:    int(r.CustomFee.Int64),
-			OrderID:      r.PaymentID,
+			OrderID:      r.OrderPaymentID,
 		}
 	}
 
 	scanDelivery := func(r orderRow) models.Delivery {
 		return models.Delivery{
-			ID:      int(r.DeliveryID_.Int64),
+			ID:      int(r.DeliveryID.Int64),
 			Name:    r.DeliveryName.String,
 			Phone:   r.Phone.String,
 			Zip:     r.Zip.String,
@@ -245,7 +264,7 @@ func (repo *orderRepo) getOrderByID(ctx context.Context, orderID int) (*broker.O
 			Address: r.Address.String,
 			Region:  r.Region.String,
 			Email:   r.Email.String,
-			OrderID: r.DeliveryID,
+			OrderID: r.OrderDeliveryID,
 		}
 	}
 
@@ -276,8 +295,8 @@ func (repo *orderRepo) getOrderByID(ctx context.Context, orderID int) (*broker.O
 			Locale:            r.Locale,
 			InternalSignature: r.InternalSignature,
 			CustomerID:        r.CustomerID,
-			DeliveryID:        r.DeliveryID,
-			PaymentID:         r.PaymentID,
+			DeliveryID:        r.OrderDeliveryID,
+			PaymentID:         r.OrderPaymentID,
 			Shardkey:          r.Shardkey,
 			SmID:              r.SmID,
 			DateCreated:       r.DateCreated,

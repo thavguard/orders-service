@@ -7,6 +7,7 @@ import (
 	"log"
 	"orders/src/broker"
 	"orders/src/db/models"
+	"orders/src/metrics"
 	"orders/src/service"
 	"sync"
 
@@ -19,16 +20,17 @@ type OrderConsumer struct {
 	deliveryService *service.DeliveryService
 	itemService     *service.ItemService
 	paymentService  *service.PaymentService
+	metrics         *metrics.Metrics
 }
 
-func NewOrderConsumer(orderService *service.OrderService,
+func NewOrderConsumer(metrics *metrics.Metrics, orderService *service.OrderService,
 	deliveryService *service.DeliveryService,
 	itemService *service.ItemService,
 	paymentService *service.PaymentService) *OrderConsumer {
 
 	broker := broker.NewBroker("orders")
 
-	return &OrderConsumer{broker: broker, orderService: orderService, deliveryService: deliveryService, itemService: itemService, paymentService: paymentService}
+	return &OrderConsumer{broker: broker, orderService: orderService, deliveryService: deliveryService, itemService: itemService, paymentService: paymentService, metrics: metrics}
 }
 
 func (c *OrderConsumer) handleMessage(ctx context.Context, msg kafka.Message) {
@@ -52,6 +54,8 @@ func (c *OrderConsumer) handleMessage(ctx context.Context, msg kafka.Message) {
 				log.Printf("EROR IN PushDQL: %v\n", err)
 			}
 
+			c.metrics.KafkaMessagesDLQ.WithLabelValues(msg.Topic).Inc()
+
 			return
 		}
 
@@ -66,7 +70,14 @@ func (c *OrderConsumer) handleMessage(ctx context.Context, msg kafka.Message) {
 			if err := c.broker.PushDQL(ctx, "order", dlq, "true", "5"); err != nil {
 				log.Printf("EROR IN PushDQL: %v\n", err)
 			}
+
+			c.metrics.KafkaMessagesDLQ.WithLabelValues(msg.Topic).Inc()
+
+			return
+
 		}
+
+		c.metrics.KafkaMessagesConsumed.WithLabelValues(msg.Topic, "success").Inc()
 
 	case "payment":
 		fmt.Printf("PAYMENT: %v\n", msg.Value)
@@ -85,6 +96,8 @@ func (c *OrderConsumer) handleMessage(ctx context.Context, msg kafka.Message) {
 				log.Printf("EROR IN PushDQL: %v\n", err)
 			}
 
+			c.metrics.KafkaMessagesDLQ.WithLabelValues(msg.Topic).Inc()
+
 			return
 		}
 
@@ -100,7 +113,12 @@ func (c *OrderConsumer) handleMessage(ctx context.Context, msg kafka.Message) {
 				log.Printf("EROR IN PushDQL: %v\n", err)
 			}
 
+			c.metrics.KafkaMessagesDLQ.WithLabelValues(msg.Topic).Inc()
+
+			return
 		}
+
+		c.metrics.KafkaMessagesConsumed.WithLabelValues(msg.Topic, "success").Inc()
 
 	case "item":
 		fmt.Printf("ITEM: %v\n", msg.Value)
@@ -119,6 +137,8 @@ func (c *OrderConsumer) handleMessage(ctx context.Context, msg kafka.Message) {
 				log.Printf("EROR IN PushDQL: %v\n", err)
 			}
 
+			c.metrics.KafkaMessagesDLQ.WithLabelValues(msg.Topic).Inc()
+
 			return
 		}
 
@@ -134,7 +154,13 @@ func (c *OrderConsumer) handleMessage(ctx context.Context, msg kafka.Message) {
 				log.Printf("EROR IN PushDQL: %v\n", err)
 			}
 
+			c.metrics.KafkaMessagesDLQ.WithLabelValues(msg.Topic).Inc()
+
+			return
+
 		}
+
+		c.metrics.KafkaMessagesConsumed.WithLabelValues(msg.Topic, "success").Inc()
 
 	case "delivery":
 		fmt.Printf("DELIVERY: %v\n", msg.Value)
@@ -153,6 +179,8 @@ func (c *OrderConsumer) handleMessage(ctx context.Context, msg kafka.Message) {
 				log.Printf("EROR IN PushDQL: %v\n", err)
 			}
 
+			c.metrics.KafkaMessagesDLQ.WithLabelValues(msg.Topic).Inc()
+
 			return
 		}
 
@@ -167,9 +195,15 @@ func (c *OrderConsumer) handleMessage(ctx context.Context, msg kafka.Message) {
 			if err := c.broker.PushDQL(ctx, "order", dlq, "true", "5"); err != nil {
 				log.Printf("EROR IN PushDQL: %v\n", err)
 			}
+
+			c.metrics.KafkaMessagesDLQ.WithLabelValues(msg.Topic).Inc()
+			return
 		}
 
+		c.metrics.KafkaMessagesConsumed.WithLabelValues(msg.Topic, "success").Inc()
+
 	}
+
 }
 
 func (c *OrderConsumer) Run(ctx context.Context) {
@@ -192,6 +226,8 @@ func (c *OrderConsumer) Run(ctx context.Context) {
 				message, err := c.broker.Read(ctx)
 				if err != nil {
 					log.Printf("error reading message: %v", err)
+					c.metrics.KafkaMessagesConsumed.WithLabelValues(message.Topic, "error").Inc()
+
 					continue
 				}
 

@@ -2,6 +2,8 @@ package mycache
 
 import (
 	"context"
+	"errors"
+	"orders/src/metrics"
 	"os"
 	"time"
 
@@ -13,9 +15,10 @@ type RedisService struct {
 	client *cache.Cache
 	rdb    *redis.Client
 	ttl    time.Duration
+	m      *metrics.Metrics
 }
 
-func NewRedis(ttl time.Duration) *RedisService {
+func NewRedis(m *metrics.Metrics, ttl time.Duration) *RedisService {
 	redisAddr := os.Getenv("REDIS_HOST") + ":" + os.Getenv("REDIS_PORT")
 	redisPassword := os.Getenv("REDIS_PASSWORD")
 
@@ -30,14 +33,19 @@ func NewRedis(ttl time.Duration) *RedisService {
 		LocalCache: cache.NewTinyLFU(1000, ttl),
 	})
 
-	return &RedisService{client: mycache, rdb: rdb, ttl: time.Hour}
+	return &RedisService{client: mycache, rdb: rdb, ttl: time.Hour, m: m}
 }
 
 func (r *RedisService) Get(ctx context.Context, key string, value interface{}) error {
 	err := r.client.Get(ctx, key, value)
 
+	if err == nil {
+		r.m.CacheHits.Inc()
+	} else if errors.Is(err, cache.ErrCacheMiss) {
+		r.m.CacheMisses.Inc()
+	}
+
 	// TODO: add singlefight
-	// TODO: add metric
 
 	return err
 }

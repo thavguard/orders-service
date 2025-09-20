@@ -1,0 +1,57 @@
+# .air - ультимативный конфиг для Go
+# Root проекта
+root = "."
+
+# Временная папка air
+tmp_dir = "tmp"
+
+# Бинарник приложения
+bin = "app"
+
+# Основная команда запуска
+cmd = "go run ./cmd/main.go"
+
+# Расширения файлов, за которыми следим
+include_ext = ["go", "tpl", "tmpl", "html", "css", "js", "sql", "json", "env"]
+
+# Папки, которые игнорируем
+exclude_dir = ["assets", "tmp", "vendor", ".git", "node_modules"]
+
+# Пауза перед перезапуском (в миллисекундах)
+delay = 300
+
+# Логирование
+log_color = true
+log_time = true
+log_level = "debug"
+
+# -------------------------------
+# Watchers
+# -------------------------------
+
+# 1. Go-код
+[build]
+  cmd = "go build -o ./tmp/app_build ./cmd/main.go"
+  include_ext = ["go"]
+  exclude_dir = ["vendor", "tmp", ".git"]
+  delay = 200
+  bin = "./tmp/app_build"
+
+# 2. Шаблоны и статические файлы
+[template]
+  include_ext = ["tpl", "tmpl", "html", "css", "js"]
+  exclude_dir = ["tmp", "vendor", ".git", "node_modules"]
+  delay = 100
+  cmd = "echo 'Static file changed, reload triggered!'"
+
+# 3. Конфиги и данные
+[config]
+  include_ext = ["json", "env", "yaml", "yml"]
+  delay = 100
+  cmd = "echo 'Config changed, app needs restart!'"
+
+# -------------------------------
+# Настройки Air
+# -------------------------------
+# Используем цвета в логах
+colors = ["cyan", "green", "yellow", "magenta"]

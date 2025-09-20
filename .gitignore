@@ -2,3 +2,5 @@ pgdata
 .env
 .idea
 redisdata
+tmp
+bin

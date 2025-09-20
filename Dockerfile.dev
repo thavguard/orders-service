@@ -1,0 +1,39 @@
+# Используем Go 1.25
+FROM golang:1.25-alpine
+
+# Устанавливаем необходимые пакеты
+RUN apk add --no-cache git bash curl make gcc musl-dev
+
+# Устанавливаем Air (air-verse) для live reload
+RUN go install github.com/air-verse/air@latest
+
+# Устанавливаем официальный prebuilt migrate (замени v4.15.2 на нужную версию)
+ARG MIGRATE_VERSION=v4.15.2
+RUN wget -qO /tmp/migrate.tar.gz "https://github.com/golang-migrate/migrate/releases/download/${MIGRATE_VERSION}/migrate.linux-amd64.tar.gz" \
+  && tar -xzf /tmp/migrate.tar.gz -C /tmp \
+  && mv /tmp/migrate /usr/local/bin/migrate \
+  && chmod +x /usr/local/bin/migrate \
+  && rm -f /tmp/migrate.tar.gz
+
+# Создаем рабочую директорию
+WORKDIR /app
+
+# Копируем go.mod и go.sum для кеширования зависимостей
+COPY go.mod go.sum ./
+
+# Загружаем зависимости
+RUN go mod download
+
+# Копируем весь проект
+COPY . .
+
+# Экспонируем порт сервиса
+EXPOSE 9000
+
+# Переменные окружения (можно переопределить через docker-compose)
+ENV GO111MODULE=on
+ENV GOPATH=/go
+ENV PATH=$PATH:/go/bin
+
+# Точка входа: запускаем air для live reload
+CMD ["air"]

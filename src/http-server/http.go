@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	orderroute "orders/src/http-server/order-route"
+	"orders/src/metrics"
 	"orders/src/service"
 	"os"
 	"time"
@@ -13,11 +14,15 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func NewServer(ctx context.Context, orderService *service.OrderService) *http.Server {
+func NewServer(ctx context.Context, met *metrics.Metrics, orderService *service.OrderService) *http.Server {
 	httpPort := ":" + os.Getenv("HTTP_PORT")
 
 	router := gin.Default()
 	router.Use(cors.Default()) // All origins allowed by default
+
+	router.Use(GinMetricsMiddleware(met))
+
+	router.GET("/metrics", gin.WrapH(met.Handler()))
 
 	orderroute.AddOrderRoutes(ctx, router, orderService)
 

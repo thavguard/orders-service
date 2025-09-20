@@ -3,9 +3,12 @@ package repositories
 import (
 	"context"
 	"fmt"
+	"log"
 	"orders/src/db"
 	"orders/src/db/models"
+	"orders/src/metrics"
 	"orders/src/myretry"
+	"time"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/sethvargo/go-retry"
@@ -18,16 +21,18 @@ type DeliveryRepository interface {
 }
 
 type deliveryRepo struct {
-	pool *sqlx.DB
-	b    func() retry.Backoff
+	pool    *sqlx.DB
+	b       func() retry.Backoff
+	metrics *metrics.Metrics
 }
 
-func NewDeliveryRepo(pool *sqlx.DB) DeliveryRepository {
+func NewDeliveryRepo(pool *sqlx.DB, metrics *metrics.Metrics) DeliveryRepository {
 	b := myretry.NewBackofFactory()
-	return &deliveryRepo{pool: pool, b: b}
+	return &deliveryRepo{pool: pool, b: b, metrics: metrics}
 }
 
 func (repo *deliveryRepo) CreateDelivery(ctx context.Context, deliveryDto *models.Delivery) (models.Delivery, error) {
+
 	var delivery models.Delivery
 	var err error
 
@@ -36,6 +41,8 @@ func (repo *deliveryRepo) CreateDelivery(ctx context.Context, deliveryDto *model
 		delivery, err = repo.createDelivery(ctx, deliveryDto)
 
 		if db.IsRetryable(err) {
+			log.Printf("ERROR IN CreateDelivery, retry...\n")
+			log.Printf("%v\n", err)
 			return retry.RetryableError(err)
 		}
 
@@ -46,6 +53,8 @@ func (repo *deliveryRepo) CreateDelivery(ctx context.Context, deliveryDto *model
 }
 
 func (repo *deliveryRepo) createDelivery(ctx context.Context, deliveryDto *models.Delivery) (models.Delivery, error) {
+	start := time.Now()
+
 	var delivery models.Delivery
 
 	query := `
@@ -56,7 +65,12 @@ RETURNING id, name, phone, zip, city, address, region, email;
 
 	rows, err := repo.pool.NamedQueryContext(ctx, query, &deliveryDto)
 
+	lat := time.Since(start).Seconds()
+	repo.metrics.DBQueryDuration.WithLabelValues("create_delivery", "delivery_service").Observe(lat)
+
 	if err != nil {
+		repo.metrics.DBQueryErrors.WithLabelValues("create_delivery", "delivery_service").Inc()
+
 		return models.Delivery{}, err
 	}
 
@@ -91,6 +105,7 @@ func (repo *deliveryRepo) GetDeliveryByID(ctx context.Context, deliveryID int) (
 }
 
 func (repo *deliveryRepo) getDeliveryByID(ctx context.Context, deliveryID int) (models.Delivery, error) {
+	start := time.Now()
 	var delivery models.Delivery
 
 	query := `select *
@@ -99,8 +114,13 @@ func (repo *deliveryRepo) getDeliveryByID(ctx context.Context, deliveryID int) (
 
 	err := repo.pool.GetContext(ctx, &delivery, query, deliveryID)
 
+	lat := time.Since(start).Seconds()
+	repo.metrics.DBQueryDuration.WithLabelValues("get_delivery_by_id", "delivery_service").Observe(lat)
+
 	if err != nil {
 		fmt.Printf("Error in GetDeliveryByID: %v\n", err)
+		repo.metrics.DBQueryErrors.WithLabelValues("get_delivery_by_id", "delivery_service").Inc()
+
 		return models.Delivery{}, err
 	}
 
@@ -126,6 +146,8 @@ func (repo *deliveryRepo) GetDeliveryByOrderID(ctx context.Context, orderID int)
 }
 
 func (repo *deliveryRepo) getDeliveryByOrderID(ctx context.Context, orderID int) (models.Delivery, error) {
+	start := time.Now()
+
 	var delivery models.Delivery
 
 	query := `select *
@@ -134,8 +156,13 @@ func (repo *deliveryRepo) getDeliveryByOrderID(ctx context.Context, orderID int)
 
 	err := repo.pool.GetContext(ctx, &delivery, query, orderID)
 
+	lat := time.Since(start).Seconds()
+	repo.metrics.DBQueryDuration.WithLabelValues("get_delivery_by_order_id", "delivery_service").Observe(lat)
+
 	if err != nil {
 		fmt.Printf("Error in GetDeliveryByOrderID: %v\n", err)
+		repo.metrics.DBQueryErrors.WithLabelValues("get_delivery_by_order_id", "delivery_service").Inc()
+
 		return models.Delivery{}, err
 	}
 

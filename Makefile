@@ -14,7 +14,7 @@ create-migration:
 	migrate create -ext sql -dir src/db/migrations -seq $(name)
 
 up-migration:
-	migrate -database "$(DATABASE_URL)" -source $(MIGRATION_SOURCE) up
+	migrate -database "$(MIGRATE_URL)" -source $(MIGRATION_SOURCE) up
 
 down-migration:
-	migrate -database "$(DATABASE_URL)" -source $(MIGRATION_SOURCE) down
+	migrate -database "$(MIGRATE_URL)" -source $(MIGRATION_SOURCE) down
