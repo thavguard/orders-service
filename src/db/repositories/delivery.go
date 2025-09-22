@@ -2,7 +2,6 @@ package repositories
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"orders/src/db"
 	"orders/src/db/models"
@@ -78,7 +77,7 @@ RETURNING id, name, phone, zip, city, address, region, email;
 
 	for rows.Next() {
 		if err = rows.StructScan(&delivery); err != nil {
-			fmt.Printf("Error while parsing  rows %v", err)
+			log.Printf("Error while parsing  rows %v", err)
 			return models.Delivery{}, err
 		}
 	}
@@ -118,7 +117,7 @@ func (repo *deliveryRepo) getDeliveryByID(ctx context.Context, deliveryID int) (
 	repo.metrics.DBQueryDuration.WithLabelValues("get_delivery_by_id", "delivery_service").Observe(lat)
 
 	if err != nil {
-		fmt.Printf("Error in GetDeliveryByID: %v\n", err)
+		log.Printf("Error in GetDeliveryByID: %v\n", err)
 		repo.metrics.DBQueryErrors.WithLabelValues("get_delivery_by_id", "delivery_service").Inc()
 
 		return models.Delivery{}, err
@@ -160,7 +159,7 @@ func (repo *deliveryRepo) getDeliveryByOrderID(ctx context.Context, orderID int)
 	repo.metrics.DBQueryDuration.WithLabelValues("get_delivery_by_order_id", "delivery_service").Observe(lat)
 
 	if err != nil {
-		fmt.Printf("Error in GetDeliveryByOrderID: %v\n", err)
+		log.Printf("Error in GetDeliveryByOrderID: %v\n", err)
 		repo.metrics.DBQueryErrors.WithLabelValues("get_delivery_by_order_id", "delivery_service").Inc()
 
 		return models.Delivery{}, err

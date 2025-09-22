@@ -9,12 +9,14 @@ import (
 	"strconv"
 
 	"github.com/go-playground/validator/v10"
+	"golang.org/x/sync/singleflight"
 )
 
 type PaymentService struct {
 	myCache     *mycache.RedisService
 	paymentRepo repositories.PaymentRepository
 	valid       *validator.Validate
+	g           singleflight.Group
 }
 
 func NewPaymentService(repo repositories.PaymentRepository, cache *mycache.RedisService, valid *validator.Validate) *PaymentService {
@@ -47,15 +49,22 @@ func (s *PaymentService) GetPaymentByID(ctx context.Context, paymentID int) (mod
 	redisKey := "payment_" + strconv.Itoa(paymentID)
 
 	if err := s.myCache.Get(ctx, redisKey, &payment); err != nil {
-		payment, err = s.paymentRepo.GetPaymentByID(ctx, paymentID)
+
+		v, err, _ := s.g.Do(redisKey, func() (interface{}, error) {
+			return s.paymentRepo.GetPaymentByID(ctx, paymentID)
+		})
 
 		if err != nil {
 			return models.Payment{}, err
 		}
 
+		payment = v.(models.Payment)
+
 		if err = s.myCache.Set(ctx, redisKey, payment); err != nil {
 			log.Printf("ERROR IN SET CACHE: %v\n", err)
 		}
+
+		s.g.Forget(redisKey)
 
 	}
 
@@ -69,15 +78,22 @@ func (s *PaymentService) GetPaymentByOrderID(ctx context.Context, orderID int) (
 	redisKey := "payment_order_id" + strconv.Itoa(orderID)
 
 	if err := s.myCache.Get(ctx, redisKey, &payment); err != nil {
-		payment, err = s.paymentRepo.GetPaymentByOrderID(ctx, orderID)
+
+		v, err, _ := s.g.Do(redisKey, func() (interface{}, error) {
+			return s.paymentRepo.GetPaymentByOrderID(ctx, orderID)
+		})
 
 		if err != nil {
 			return models.Payment{}, err
 		}
 
+		payment = v.(models.Payment)
+
 		if err = s.myCache.Set(ctx, redisKey, payment); err != nil {
 			log.Printf("ERROR IN SET CACHE: %v\n", err)
 		}
+
+		s.g.Forget(redisKey)
 
 	}
 

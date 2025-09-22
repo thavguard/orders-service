@@ -2,7 +2,7 @@ package repositories
 
 import (
 	"context"
-	"fmt"
+	"log"
 	"orders/src/db"
 	"orders/src/db/models"
 	"orders/src/metrics"
@@ -73,7 +73,7 @@ RETURNING id, chrt_id, track_number, price, rid, name, sale, size, total_price, 
 
 	for rows.Next() {
 		if err = rows.StructScan(&item); err != nil {
-			fmt.Printf("Error while parsing rows %v", err)
+			log.Printf("Error while parsing rows %v", err)
 			return models.Item{}, err
 		}
 	}
@@ -117,7 +117,7 @@ func (repo *itemRepo) getItemByID(ctx context.Context, itemID int) (models.Item,
 	if err != nil {
 		repo.metrics.DBQueryErrors.WithLabelValues("get_item_by_id", "item_service").Inc()
 
-		fmt.Printf("Error in GetItemByID: %v\n", err)
+		log.Printf("Error in GetItemByID: %v\n", err)
 		return item, err
 	}
 
@@ -160,7 +160,7 @@ func (repo *itemRepo) getItemsByOrderID(ctx context.Context, orderID int) ([]mod
 	if err != nil {
 		repo.metrics.DBQueryErrors.WithLabelValues("get_item_by_order_id", "item_service").Inc()
 
-		fmt.Printf("Error in GetItemsByOrderID: %v\n", err)
+		log.Printf("Error in GetItemsByOrderID: %v\n", err)
 		return items, err
 	}
 

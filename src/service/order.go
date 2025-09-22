@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"orders/src/broker"
 	"orders/src/db/models"
@@ -11,12 +10,14 @@ import (
 	"strconv"
 
 	"github.com/go-playground/validator/v10"
+	"golang.org/x/sync/singleflight"
 )
 
 type OrderService struct {
 	myCache   *mycache.RedisService
 	orderRepo repositories.OrderRepository
 	valid     *validator.Validate
+	g         singleflight.Group
 }
 
 func NewOrderService(
@@ -32,19 +33,25 @@ func (s *OrderService) GetOrderByID(ctx context.Context, orderID int) (*broker.O
 	err := s.myCache.Get(ctx, redisKey, &order)
 
 	if err != nil {
-		fmt.Printf("ERROR IN REDIS: %v\n", err)
+		log.Printf("ERROR IN REDIS: %v\n", err)
 
-		order, err = s.orderRepo.GetOrderByID(ctx, orderID)
+		v, err, _ := s.g.Do(redisKey, func() (interface{}, error) {
+			return s.orderRepo.GetOrderByID(ctx, orderID)
+
+		})
 
 		if err != nil {
-			fmt.Printf("ERROR IN DB: %v\n", err)
-		} else {
-			err := s.myCache.Set(ctx, redisKey, &order)
-
-			if err != nil {
-				fmt.Printf("Error in Cache Set %v\n", err)
-			}
+			log.Printf("ERROR IN DB: %v\n", err)
+			return order, err
 		}
+
+		order = v.(*broker.OrderMessage)
+
+		if err = s.myCache.Set(ctx, redisKey, &order); err != nil {
+			log.Printf("Error in Cache Set %v\n", err)
+		}
+
+		s.g.Forget(redisKey)
 	}
 
 	return order, err

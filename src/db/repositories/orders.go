@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log"
 	"orders/src/broker"
 	"orders/src/db"
 	"orders/src/db/models"
@@ -80,7 +81,7 @@ func (repo *orderRepo) createOrder(ctx context.Context, orderDto *models.Order) 
 
 	for rows.Next() {
 		if err = rows.StructScan(&order); err != nil {
-			fmt.Printf("Error while parsing rows %v", err)
+			log.Printf("Error while parsing rows %v", err)
 			return models.Order{}, err
 		}
 	}

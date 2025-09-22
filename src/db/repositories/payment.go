@@ -2,7 +2,7 @@ package repositories
 
 import (
 	"context"
-	"fmt"
+	"log"
 	"orders/src/db"
 	"orders/src/db/models"
 	"orders/src/metrics"
@@ -77,7 +77,7 @@ amount, payment_dt, bank, request_id, transaction, custom_fee, goods_total;
 
 	for rows.Next() {
 		if err = rows.StructScan(&payment); err != nil {
-			fmt.Printf("Error while parsing rows %v", err)
+			log.Printf("Error while parsing rows %v", err)
 			return models.Payment{}, err
 		}
 	}
@@ -120,7 +120,7 @@ func (repo *paymentRepo) getPaymentByID(ctx context.Context, paymentID int) (mod
 	if err != nil {
 		repo.metrics.DBQueryErrors.WithLabelValues("get_payment_by_id", "payment_service").Inc()
 
-		fmt.Printf("Error in GetPaymentByID: %v\n", err)
+		log.Printf("Error in GetPaymentByID: %v\n", err)
 		return models.Payment{}, err
 	}
 
@@ -162,7 +162,7 @@ func (repo *paymentRepo) getPaymentByOrderID(ctx context.Context, orderID int) (
 	if err != nil {
 		repo.metrics.DBQueryErrors.WithLabelValues("get_payment_by_order_id", "payment_service").Inc()
 
-		fmt.Printf("Error in GetPaymentByID: %v\n", err)
+		log.Printf("Error in GetPaymentByID: %v\n", err)
 		return models.Payment{}, err
 	}
 

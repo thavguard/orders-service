@@ -9,12 +9,14 @@ import (
 	"strconv"
 
 	"github.com/go-playground/validator/v10"
+	"golang.org/x/sync/singleflight"
 )
 
 type ItemService struct {
 	myCache  *mycache.RedisService
 	itemRepo repositories.ItemRepository
 	valid    *validator.Validate
+	g        singleflight.Group
 }
 
 func NewItemService(repo repositories.ItemRepository, cache *mycache.RedisService, valid *validator.Validate) *ItemService {
@@ -48,15 +50,22 @@ func (s *ItemService) GetItemByID(ctx context.Context, itemID int) (models.Item,
 	redisKey := "item_" + strconv.Itoa(itemID)
 
 	if err := s.myCache.Get(ctx, redisKey, &item); err != nil {
-		item, err = s.itemRepo.GetItemByID(ctx, itemID)
+
+		v, err, _ := s.g.Do(redisKey, func() (interface{}, error) {
+			return s.itemRepo.GetItemByID(ctx, itemID)
+		})
 
 		if err != nil {
 			return models.Item{}, err
 		}
 
+		item := v.(models.Item)
+
 		if err = s.myCache.Set(ctx, redisKey, item); err != nil {
 			log.Printf("ERROR IN PAYMENT CACHE SET: %v\n", err)
 		}
+
+		s.g.Forget(redisKey)
 
 	}
 
@@ -71,15 +80,21 @@ func (s *ItemService) GetItemsByOrderID(ctx context.Context, orderID int) ([]mod
 
 	if err := s.myCache.Get(ctx, redisKey, &items); err != nil {
 
-		items, err = s.itemRepo.GetItemsByOrderID(ctx, orderID)
+		v, err, _ := s.g.Do(redisKey, func() (interface{}, error) {
+			return s.itemRepo.GetItemsByOrderID(ctx, orderID)
+		})
 
 		if err != nil {
 			return []models.Item{}, err
 		}
 
+		items = v.([]models.Item)
+
 		if err = s.myCache.Set(ctx, redisKey, items); err != nil {
 			log.Printf("ERROR IN PAYMENT CACHE SET: %v\n", err)
 		}
+
+		s.g.Forget(redisKey)
 
 	}
 

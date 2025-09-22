@@ -9,12 +9,14 @@ import (
 	"strconv"
 
 	"github.com/go-playground/validator/v10"
+	"golang.org/x/sync/singleflight"
 )
 
 type DeliveryService struct {
 	myCache      *mycache.RedisService
 	deliveryRepo repositories.DeliveryRepository
 	valid        *validator.Validate
+	g            singleflight.Group
 }
 
 func NewDeliveryService(repo repositories.DeliveryRepository, cache *mycache.RedisService, valid *validator.Validate) *DeliveryService {
@@ -47,15 +49,22 @@ func (s *DeliveryService) GetDeliveryByID(ctx context.Context, deliveryID int) (
 	redisKey := "delivery_" + strconv.Itoa(deliveryID)
 
 	if err := s.myCache.Get(ctx, redisKey, &delivery); err != nil {
-		delivery, err = s.deliveryRepo.GetDeliveryByID(ctx, deliveryID)
+
+		v, err, _ := s.g.Do(redisKey, func() (interface{}, error) {
+			return s.deliveryRepo.GetDeliveryByID(ctx, deliveryID)
+		})
 
 		if err != nil {
 			return models.Delivery{}, err
 		}
 
+		delivery = v.(models.Delivery)
+
 		if err = s.myCache.Set(ctx, redisKey, delivery); err != nil {
 			log.Printf("ERROR IN SET CACHE: %v\n", err)
 		}
+
+		s.g.Forget(redisKey)
 
 	}
 
@@ -69,15 +78,21 @@ func (s *DeliveryService) GetDeliveryByOrderID(ctx context.Context, orderID int)
 	redisKey := "devivery_order_id" + strconv.Itoa(orderID)
 
 	if err := s.myCache.Get(ctx, redisKey, &delivery); err != nil {
-		delivery, err = s.deliveryRepo.GetDeliveryByOrderID(ctx, orderID)
+
+		v, err, _ := s.g.Do(redisKey, func() (interface{}, error) {
+			return s.deliveryRepo.GetDeliveryByOrderID(ctx, orderID)
+		})
 
 		if err != nil {
 			return models.Delivery{}, err
 		}
+		delivery := v.(models.Delivery)
 
 		if err = s.myCache.Set(ctx, redisKey, delivery); err != nil {
 			log.Printf("ERROR IN SET CACHE: %v\n", err)
 		}
+
+		s.g.Forget(redisKey)
 
 	}
 

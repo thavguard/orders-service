@@ -12,12 +12,14 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 )
 
 func NewServer(ctx context.Context, met *metrics.Metrics, orderService *service.OrderService) *http.Server {
 	httpPort := ":" + os.Getenv("HTTP_PORT")
 
 	router := gin.Default()
+	router.Use(otelgin.Middleware("http-service"))
 	router.Use(cors.Default()) // All origins allowed by default
 
 	router.Use(GinMetricsMiddleware(met))

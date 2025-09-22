@@ -36,6 +36,13 @@ run `docker compose --env-file=.env up -d`
 
 `make down-migration`
 
+## Utils
+
+Tracing - <http://localhost:16686/search>
+Prometheus - <http://localhost:9090/query>
+Grafana - <http://localhost:3000/?orgId=1&from=now-6h&to=now&timezone=browser>
+Kafka-UI - <http://localhost:8090/>
+
 ## Описание проекта
 
 Language - **go**\
@@ -46,3 +53,6 @@ HTTP - **gin**\
 Cache - **redis LFU**\
 Validation - **tags validator**\
 Retry - **sethvargo/go-retry**\
+Tracing - **OTEL + jaeger**
+Metrics - **prometheus + grafana**
+Singleflight - **x/sync**

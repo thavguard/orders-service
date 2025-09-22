@@ -31,14 +31,7 @@ type Metrics struct {
 	CacheMisses prometheus.Counter
 }
 
-// New создает метрики и регистрирует их в регистри
 func New(reg prometheus.Registerer, gatherer prometheus.Gatherer) *Metrics {
-	if reg == nil {
-		reg = prometheus.DefaultRegisterer
-	}
-	if gatherer == nil {
-		gatherer = prometheus.DefaultGatherer
-	}
 
 	m := &Metrics{
 		Registry: reg,

@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"orders/src/broker/consumers"
 	"orders/src/db"
@@ -11,6 +10,7 @@ import (
 	"orders/src/metrics"
 	"orders/src/mycache"
 	"orders/src/service"
+	"orders/src/tracer"
 	customvalidator "orders/src/utils/custom-validator"
 	"os"
 	"os/signal"
@@ -19,6 +19,7 @@ import (
 
 	"github.com/go-playground/validator/v10"
 	"github.com/joho/godotenv"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 var Validate *validator.Validate
@@ -37,6 +38,19 @@ func main() {
 		os.Interrupt, syscall.SIGTERM, syscall.SIGQUIT)
 	defer stop()
 
+	// Tracing
+	tp, err := tracer.InitTracer(os.Getenv("JAEGER_URL"), "Orders Service")
+
+	if err != nil {
+		log.Printf("init tracer: %v\n", err)
+	}
+
+	// Метрики
+	reg := prometheus.DefaultRegisterer
+	gt := prometheus.DefaultGatherer
+
+	met := metrics.New(reg, gt)
+
 	Validate, err := customvalidator.NewValidator()
 
 	if err != nil {
@@ -44,13 +58,10 @@ func main() {
 	}
 
 	// Инициализация БД
-	db, err := db.NewDBConnection(os.Getenv("DATABASE_URL"))
+	db, err := db.NewDBConnection(ctx, tp, os.Getenv("DATABASE_URL"))
 	if err != nil {
 		log.Fatalf("failed to connect to database: %v", err)
 	}
-
-	// Метрики
-	met := metrics.New(nil, nil)
 
 	// Инициализация репозиториев
 	orderRepo := repositories.NewOrderRepo(db.Pool, met)
@@ -59,7 +70,7 @@ func main() {
 	deliveryRepo := repositories.NewDeliveryRepo(db.Pool, met)
 
 	// Инициализация redis
-	redis := mycache.NewRedis(met, time.Minute)
+	redis := mycache.NewRedis(tp, reg, met, time.Minute)
 
 	// Инициализация сервисов
 	ordersService := service.NewOrderService(orderRepo, redis, Validate)
@@ -71,14 +82,14 @@ func main() {
 	srv := httpserver.NewServer(ctx, met, ordersService)
 
 	// Подписка на топик
-	listener := consumers.NewOrderConsumer(met, ordersService, deliveryService, itemService, paymentService)
+	listener := consumers.NewOrderConsumer(met, tp, ordersService, deliveryService, itemService, paymentService)
 	listener.Run(ctx)
 
 	// Обработка закрытия  приложения
 	<-ctx.Done()
 
 	if err := srv.Shutdown(ctx); err != nil {
-		fmt.Printf("Error in srv.Shutdown: %v\n", err)
+		log.Printf("Error in srv.Shutdown: %v\n", err)
 	}
 
 	if err1, err2 := listener.Close(); err != nil || err2 != nil {
@@ -97,6 +108,10 @@ func main() {
 
 	if err := db.Close(); err != nil {
 		log.Printf("Error in db.Close: %v\n", err)
+	}
+
+	if err := tp.Shutdown(ctx); err != nil {
+		log.Printf("Error in tp.Shutdown: %v\n", err)
 	}
 
 }

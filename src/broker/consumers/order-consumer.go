@@ -3,7 +3,6 @@ package consumers
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"log"
 	"orders/src/broker"
 	"orders/src/db/models"
@@ -12,6 +11,8 @@ import (
 	"sync"
 
 	"github.com/segmentio/kafka-go"
+	"go.opentelemetry.io/otel/sdk/trace"
+	"golang.org/x/sync/semaphore"
 )
 
 type OrderConsumer struct {
@@ -21,24 +22,24 @@ type OrderConsumer struct {
 	itemService     *service.ItemService
 	paymentService  *service.PaymentService
 	metrics         *metrics.Metrics
+	tp              *trace.TracerProvider
 }
 
-func NewOrderConsumer(metrics *metrics.Metrics, orderService *service.OrderService,
+func NewOrderConsumer(metrics *metrics.Metrics, tp *trace.TracerProvider, orderService *service.OrderService,
 	deliveryService *service.DeliveryService,
 	itemService *service.ItemService,
 	paymentService *service.PaymentService) *OrderConsumer {
 
-	broker := broker.NewBroker("orders")
+	broker := broker.NewBroker(tp, "orders")
 
-	return &OrderConsumer{broker: broker, orderService: orderService, deliveryService: deliveryService, itemService: itemService, paymentService: paymentService, metrics: metrics}
+	return &OrderConsumer{tp: tp, broker: broker, orderService: orderService, deliveryService: deliveryService, itemService: itemService, paymentService: paymentService, metrics: metrics}
 }
 
-func (c *OrderConsumer) handleMessage(ctx context.Context, msg kafka.Message) {
+func (c *OrderConsumer) handleMessage(ctx context.Context, msg *kafka.Message) {
 
 	switch string(msg.Key) {
 
 	case "order":
-		fmt.Printf("ORDER: %v\n", msg.Value)
 
 		var order models.Order
 
@@ -80,7 +81,6 @@ func (c *OrderConsumer) handleMessage(ctx context.Context, msg kafka.Message) {
 		c.metrics.KafkaMessagesConsumed.WithLabelValues(msg.Topic, "success").Inc()
 
 	case "payment":
-		fmt.Printf("PAYMENT: %v\n", msg.Value)
 
 		var payment models.Payment
 
@@ -121,7 +121,6 @@ func (c *OrderConsumer) handleMessage(ctx context.Context, msg kafka.Message) {
 		c.metrics.KafkaMessagesConsumed.WithLabelValues(msg.Topic, "success").Inc()
 
 	case "item":
-		fmt.Printf("ITEM: %v\n", msg.Value)
 
 		var item models.Item
 
@@ -163,7 +162,6 @@ func (c *OrderConsumer) handleMessage(ctx context.Context, msg kafka.Message) {
 		c.metrics.KafkaMessagesConsumed.WithLabelValues(msg.Topic, "success").Inc()
 
 	case "delivery":
-		fmt.Printf("DELIVERY: %v\n", msg.Value)
 
 		var delivery models.Delivery
 
@@ -211,7 +209,7 @@ func (c *OrderConsumer) Run(ctx context.Context) {
 	var wg sync.WaitGroup
 
 	const maxWorkers = 20 // TODO: настроить кол-во пулов к БД
-	sem := make(chan struct{}, maxWorkers)
+	sem := semaphore.NewWeighted(maxWorkers)
 
 	go func() {
 		for {
@@ -231,16 +229,27 @@ func (c *OrderConsumer) Run(ctx context.Context) {
 					continue
 				}
 
-				sem <- struct{}{}
 				wg.Add(1)
 
-				go func(msg kafka.Message) {
+				go func(msg *kafka.Message) {
 					defer wg.Done()
+
+					if err := sem.Acquire(ctx, 1); err != nil {
+						log.Printf("Error sem.Acquire: %v\n", err)
+						return
+					}
+
 					defer func() {
-						<-sem
+						sem.Release(1)
 					}()
 
+					ctx = c.broker.Trace(ctx, msg)
+					tr := c.tp.Tracer("orders-consumer")
+					_, span := tr.Start(ctx, "handle-order")
+
 					c.handleMessage(ctx, msg)
+
+					span.End()
 
 				}(message)
 

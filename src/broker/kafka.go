@@ -6,25 +6,44 @@ import (
 	"log"
 	"os"
 
+	otelkafkakonsumer "github.com/Trendyol/otel-kafka-konsumer"
 	"github.com/segmentio/kafka-go"
 	"github.com/segmentio/kafka-go/protocol"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/propagation"
+	"go.opentelemetry.io/otel/sdk/trace"
+	semconv "go.opentelemetry.io/otel/semconv/v1.13.0"
 )
 
 type Broker struct {
 	topic  string
-	reader *kafka.Reader
+	reader *otelkafkakonsumer.Reader
 	writer *kafka.Writer
 }
 
-func NewBroker(topic string) *Broker {
+func NewBroker(tp *trace.TracerProvider, topic string) *Broker {
 
 	kafkaUrls := []string{os.Getenv("KAFKA_HOST")}
 
-	r := kafka.NewReader(kafka.ReaderConfig{
-		Brokers: kafkaUrls,
-		Topic:   topic,
-		GroupID: "GroupID",
-	})
+	r, err := otelkafkakonsumer.NewReader(
+		kafka.NewReader(kafka.ReaderConfig{
+			Brokers: kafkaUrls,
+			Topic:   topic,
+			GroupID: "GroupID",
+		}),
+		otelkafkakonsumer.WithTracerProvider(tp),
+		otelkafkakonsumer.WithPropagator(propagation.TraceContext{}),
+		otelkafkakonsumer.WithAttributes(
+			[]attribute.KeyValue{
+				semconv.MessagingDestinationKindTopic,
+				semconv.MessagingKafkaClientIDKey.String("opentel-autocommit-cg"),
+			},
+		),
+	)
+
+	if err != nil {
+		log.Printf("ERROR IN INIT READER: %v\n", err)
+	}
 
 	DLQTopic := topic + "." + "errors"
 
@@ -38,7 +57,7 @@ func NewBroker(topic string) *Broker {
 	return &Broker{topic: topic, reader: r, writer: w}
 }
 
-func (b *Broker) Read(ctx context.Context) (kafka.Message, error) {
+func (b *Broker) Read(ctx context.Context) (*kafka.Message, error) {
 	return b.reader.ReadMessage(ctx)
 }
 
@@ -61,6 +80,12 @@ func (b *Broker) PushDQL(ctx context.Context, key string, dlqMessage DQLMessage,
 	}
 
 	return b.writer.WriteMessages(ctx, message)
+}
+
+func (b *Broker) Trace(ctx context.Context, message *kafka.Message) context.Context {
+	ctx = b.reader.TraceConfig.Propagator.Extract(ctx, otelkafkakonsumer.NewMessageCarrier(message))
+
+	return ctx
 }
 
 func (b *Broker) Close() (error, error) {

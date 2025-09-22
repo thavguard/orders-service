@@ -3,12 +3,17 @@ package mycache
 import (
 	"context"
 	"errors"
+	"log"
 	"orders/src/metrics"
 	"os"
 	"time"
 
 	"github.com/go-redis/cache/v9"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/redis/go-redis/extra/redisotel/v9"
+	"github.com/redis/go-redis/extra/redisprometheus/v9"
 	"github.com/redis/go-redis/v9"
+	"go.opentelemetry.io/otel/sdk/trace"
 )
 
 type RedisService struct {
@@ -18,7 +23,7 @@ type RedisService struct {
 	m      *metrics.Metrics
 }
 
-func NewRedis(m *metrics.Metrics, ttl time.Duration) *RedisService {
+func NewRedis(tp *trace.TracerProvider, reg prometheus.Registerer, m *metrics.Metrics, ttl time.Duration) *RedisService {
 	redisAddr := os.Getenv("REDIS_HOST") + ":" + os.Getenv("REDIS_PORT")
 	redisPassword := os.Getenv("REDIS_PASSWORD")
 
@@ -27,6 +32,20 @@ func NewRedis(m *metrics.Metrics, ttl time.Duration) *RedisService {
 		Password: redisPassword,
 		DB:       0,
 	})
+
+	collector := redisprometheus.NewCollector("redis", "client", rdb)
+
+	reg.MustRegister(collector)
+
+	redisotel.WithTracerProvider(tp)
+
+	if err := redisotel.InstrumentTracing(rdb); err != nil {
+		log.Printf("Error in InstrumentTracing: %v\n", err)
+	}
+
+	if err := redisotel.InstrumentMetrics(rdb); err != nil {
+		log.Printf("Error in InstrumentMetrics: %v\n", err)
+	}
 
 	mycache := cache.New(&cache.Options{
 		Redis:      rdb,
@@ -45,8 +64,6 @@ func (r *RedisService) Get(ctx context.Context, key string, value interface{}) e
 		r.m.CacheMisses.Inc()
 	}
 
-	// TODO: add singlefight
-
 	return err
 }
 
@@ -57,9 +74,6 @@ func (r *RedisService) Set(ctx context.Context, key string, value interface{}) e
 		Value: &value,
 		TTL:   r.ttl,
 	})
-
-	// TODO: add singlefight
-	// TODO: add metrics
 
 	return err
 }

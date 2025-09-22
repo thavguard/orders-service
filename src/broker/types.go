@@ -15,6 +15,6 @@ type OrderMessage struct {
 }
 
 type DQLMessage struct {
-	Origin kafka.Message `json:"origin"`
-	Reason string        `json:"reason"`
+	Origin *kafka.Message `json:"origin"`
+	Reason string         `json:"reason"`
 }
