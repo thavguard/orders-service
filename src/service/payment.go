@@ -12,18 +12,24 @@ import (
 	"golang.org/x/sync/singleflight"
 )
 
-type PaymentService struct {
-	myCache     *mycache.RedisService
+type PaymentService interface {
+	CreatePayment(ctx context.Context, paymentDto *models.Payment) (models.Payment, error)
+	GetPaymentByID(ctx context.Context, paymentID int) (models.Payment, error)
+	GetPaymentByOrderID(ctx context.Context, orderID int) (models.Payment, error)
+}
+
+type paymentService struct {
+	myCache     mycache.CacheService
 	paymentRepo repositories.PaymentRepository
 	valid       *validator.Validate
 	g           singleflight.Group
 }
 
-func NewPaymentService(repo repositories.PaymentRepository, cache *mycache.RedisService, valid *validator.Validate) *PaymentService {
-	return &PaymentService{paymentRepo: repo, myCache: cache, valid: valid}
+func NewPaymentService(repo repositories.PaymentRepository, cache mycache.CacheService, valid *validator.Validate) PaymentService {
+	return &paymentService{paymentRepo: repo, myCache: cache, valid: valid}
 }
 
-func (s *PaymentService) CreatePayment(ctx context.Context, paymentDto *models.Payment) (models.Payment, error) {
+func (s *paymentService) CreatePayment(ctx context.Context, paymentDto *models.Payment) (models.Payment, error) {
 	if err := s.valid.StructCtx(ctx, paymentDto); err != nil {
 		log.Printf("ERROR IN VALIDATE: %v\n", err)
 
@@ -42,7 +48,7 @@ func (s *PaymentService) CreatePayment(ctx context.Context, paymentDto *models.P
 
 }
 
-func (s *PaymentService) GetPaymentByID(ctx context.Context, paymentID int) (models.Payment, error) {
+func (s *paymentService) GetPaymentByID(ctx context.Context, paymentID int) (models.Payment, error) {
 
 	var payment models.Payment
 
@@ -71,7 +77,7 @@ func (s *PaymentService) GetPaymentByID(ctx context.Context, paymentID int) (mod
 	return payment, nil
 }
 
-func (s *PaymentService) GetPaymentByOrderID(ctx context.Context, orderID int) (models.Payment, error) {
+func (s *paymentService) GetPaymentByOrderID(ctx context.Context, orderID int) (models.Payment, error) {
 
 	var payment models.Payment
 

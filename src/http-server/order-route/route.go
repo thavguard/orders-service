@@ -9,7 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func AddOrderRoutes(ctx context.Context, router *gin.Engine, orderService *service.OrderService) {
+func AddOrderRoutes(ctx context.Context, router *gin.Engine, orderService service.OrderService) {
 
 	router.GET("/order/:orderID", func(c *gin.Context) {
 		orderID, err := strconv.Atoi(c.Param("orderID"))

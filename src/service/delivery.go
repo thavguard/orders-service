@@ -12,18 +12,24 @@ import (
 	"golang.org/x/sync/singleflight"
 )
 
-type DeliveryService struct {
-	myCache      *mycache.RedisService
+type DeliveryService interface {
+	CreateDelivery(ctx context.Context, deliveryDto *models.Delivery) (models.Delivery, error)
+	GetDeliveryByID(ctx context.Context, deliveryID int) (models.Delivery, error)
+	GetDeliveryByOrderID(ctx context.Context, orderID int) (models.Delivery, error)
+}
+
+type deliveryService struct {
+	myCache      mycache.CacheService
 	deliveryRepo repositories.DeliveryRepository
 	valid        *validator.Validate
 	g            singleflight.Group
 }
 
-func NewDeliveryService(repo repositories.DeliveryRepository, cache *mycache.RedisService, valid *validator.Validate) *DeliveryService {
-	return &DeliveryService{deliveryRepo: repo, myCache: cache, valid: valid}
+func NewDeliveryService(repo repositories.DeliveryRepository, cache mycache.CacheService, valid *validator.Validate) DeliveryService {
+	return &deliveryService{deliveryRepo: repo, myCache: cache, valid: valid}
 }
 
-func (s *DeliveryService) CreateDelivery(ctx context.Context, deliveryDto *models.Delivery) (models.Delivery, error) {
+func (s *deliveryService) CreateDelivery(ctx context.Context, deliveryDto *models.Delivery) (models.Delivery, error) {
 	if err := s.valid.StructCtx(ctx, deliveryDto); err != nil {
 		log.Printf("ERROR IN VALIDATE: %v\n", err)
 
@@ -42,7 +48,7 @@ func (s *DeliveryService) CreateDelivery(ctx context.Context, deliveryDto *model
 
 }
 
-func (s *DeliveryService) GetDeliveryByID(ctx context.Context, deliveryID int) (models.Delivery, error) {
+func (s *deliveryService) GetDeliveryByID(ctx context.Context, deliveryID int) (models.Delivery, error) {
 
 	var delivery models.Delivery
 
@@ -71,7 +77,7 @@ func (s *DeliveryService) GetDeliveryByID(ctx context.Context, deliveryID int) (
 	return delivery, nil
 }
 
-func (s *DeliveryService) GetDeliveryByOrderID(ctx context.Context, orderID int) (models.Delivery, error) {
+func (s *deliveryService) GetDeliveryByOrderID(ctx context.Context, orderID int) (models.Delivery, error) {
 
 	var delivery models.Delivery
 

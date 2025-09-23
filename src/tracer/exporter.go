@@ -12,7 +12,7 @@ type SpanExporter interface {
 	Shutdown(ctx context.Context) error
 }
 
-func NewExporter(url string) (tracesdk.SpanExporter, error) {
+func NewExporter(url string) (SpanExporter, error) {
 	return jaeger.New(jaeger.WithCollectorEndpoint(jaeger.WithEndpoint(url)))
 
 }

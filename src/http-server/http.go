@@ -15,7 +15,7 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 )
 
-func NewServer(ctx context.Context, met *metrics.Metrics, orderService *service.OrderService) *http.Server {
+func NewServer(ctx context.Context, met *metrics.Metrics, orderService service.OrderService) *http.Server {
 	httpPort := ":" + os.Getenv("HTTP_PORT")
 
 	router := gin.Default()

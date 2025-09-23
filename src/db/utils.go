@@ -7,7 +7,6 @@ import (
 )
 
 func IsRetryable(err error) bool {
-
 	if err == nil {
 		return false
 	}

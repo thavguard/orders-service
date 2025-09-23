@@ -13,19 +13,24 @@ import (
 	"golang.org/x/sync/singleflight"
 )
 
-type OrderService struct {
-	myCache   *mycache.RedisService
+type OrderService interface {
+	GetOrderByID(ctx context.Context, orderID int) (*broker.OrderMessage, error)
+	CreateOrder(ctx context.Context, orderDto models.Order) (models.Order, error)
+}
+
+type orderService struct {
+	myCache   mycache.CacheService
 	orderRepo repositories.OrderRepository
 	valid     *validator.Validate
 	g         singleflight.Group
 }
 
 func NewOrderService(
-	orderRepo repositories.OrderRepository, myCache *mycache.RedisService, valid *validator.Validate) *OrderService {
-	return &OrderService{myCache: myCache, orderRepo: orderRepo, valid: valid}
+	orderRepo repositories.OrderRepository, myCache mycache.CacheService, valid *validator.Validate) OrderService {
+	return &orderService{myCache: myCache, orderRepo: orderRepo, valid: valid}
 }
 
-func (s *OrderService) GetOrderByID(ctx context.Context, orderID int) (*broker.OrderMessage, error) {
+func (s *orderService) GetOrderByID(ctx context.Context, orderID int) (*broker.OrderMessage, error) {
 	redisKey := "order_" + strconv.Itoa(orderID)
 
 	var order *broker.OrderMessage
@@ -57,7 +62,7 @@ func (s *OrderService) GetOrderByID(ctx context.Context, orderID int) (*broker.O
 	return order, err
 }
 
-func (s *OrderService) CreateOrder(ctx context.Context, orderDto models.Order) (models.Order, error) {
+func (s *orderService) CreateOrder(ctx context.Context, orderDto models.Order) (models.Order, error) {
 	if err := s.valid.StructCtx(ctx, orderDto); err != nil {
 		return models.Order{}, err
 	}

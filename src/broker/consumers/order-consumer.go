@@ -17,18 +17,18 @@ import (
 
 type OrderConsumer struct {
 	broker          *broker.Broker
-	orderService    *service.OrderService
-	deliveryService *service.DeliveryService
-	itemService     *service.ItemService
-	paymentService  *service.PaymentService
+	orderService    service.OrderService
+	deliveryService service.DeliveryService
+	itemService     service.ItemService
+	paymentService  service.PaymentService
 	metrics         *metrics.Metrics
 	tp              *trace.TracerProvider
 }
 
-func NewOrderConsumer(metrics *metrics.Metrics, tp *trace.TracerProvider, orderService *service.OrderService,
-	deliveryService *service.DeliveryService,
-	itemService *service.ItemService,
-	paymentService *service.PaymentService) *OrderConsumer {
+func NewOrderConsumer(metrics *metrics.Metrics, tp *trace.TracerProvider, orderService service.OrderService,
+	deliveryService service.DeliveryService,
+	itemService service.ItemService,
+	paymentService service.PaymentService) *OrderConsumer {
 
 	broker := broker.NewBroker(tp, "orders")
 

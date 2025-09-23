@@ -16,14 +16,24 @@ import (
 	"go.opentelemetry.io/otel/sdk/trace"
 )
 
-type RedisService struct {
-	client *cache.Cache
+type CacheService interface {
+	Get(ctx context.Context, key string, value interface{}) error
+	Set(ctx context.Context, key string, value interface{}) error
+	Close() error
+}
+
+type myRedisCache interface {
+	Get(ctx context.Context, key string, value interface{}) error
+	Set(item *cache.Item) error
+}
+type redisService struct {
+	client myRedisCache
 	rdb    *redis.Client
 	ttl    time.Duration
 	m      *metrics.Metrics
 }
 
-func NewRedis(tp *trace.TracerProvider, reg prometheus.Registerer, m *metrics.Metrics, ttl time.Duration) *RedisService {
+func NewRedis(tp *trace.TracerProvider, reg prometheus.Registerer, m *metrics.Metrics, ttl time.Duration) CacheService {
 	redisAddr := os.Getenv("REDIS_HOST") + ":" + os.Getenv("REDIS_PORT")
 	redisPassword := os.Getenv("REDIS_PASSWORD")
 
@@ -52,22 +62,24 @@ func NewRedis(tp *trace.TracerProvider, reg prometheus.Registerer, m *metrics.Me
 		LocalCache: cache.NewTinyLFU(1000, ttl),
 	})
 
-	return &RedisService{client: mycache, rdb: rdb, ttl: time.Hour, m: m}
+	return &redisService{client: mycache, rdb: rdb, ttl: time.Hour, m: m}
 }
 
-func (r *RedisService) Get(ctx context.Context, key string, value interface{}) error {
+func (r *redisService) Get(ctx context.Context, key string, value interface{}) error {
 	err := r.client.Get(ctx, key, value)
 
 	if err == nil {
 		r.m.CacheHits.Inc()
 	} else if errors.Is(err, cache.ErrCacheMiss) {
 		r.m.CacheMisses.Inc()
+	} else {
+		return err
 	}
 
 	return err
 }
 
-func (r *RedisService) Set(ctx context.Context, key string, value interface{}) error {
+func (r *redisService) Set(ctx context.Context, key string, value interface{}) error {
 	err := r.client.Set(&cache.Item{
 		Ctx:   ctx,
 		Key:   key,
@@ -78,6 +90,6 @@ func (r *RedisService) Set(ctx context.Context, key string, value interface{}) e
 	return err
 }
 
-func (r *RedisService) Close() error {
+func (r *redisService) Close() error {
 	return r.rdb.Close()
 }

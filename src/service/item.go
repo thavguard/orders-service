@@ -12,19 +12,25 @@ import (
 	"golang.org/x/sync/singleflight"
 )
 
-type ItemService struct {
-	myCache  *mycache.RedisService
+type ItemService interface {
+	CreateItem(ctx context.Context, itemDto *models.Item) (models.Item, error)
+	GetItemByID(ctx context.Context, itemID int) (models.Item, error)
+	GetItemsByOrderID(ctx context.Context, orderID int) ([]models.Item, error)
+}
+
+type itemService struct {
+	myCache  mycache.CacheService
 	itemRepo repositories.ItemRepository
 	valid    *validator.Validate
 	g        singleflight.Group
 }
 
-func NewItemService(repo repositories.ItemRepository, cache *mycache.RedisService, valid *validator.Validate) *ItemService {
+func NewItemService(repo repositories.ItemRepository, cache mycache.CacheService, valid *validator.Validate) ItemService {
 
-	return &ItemService{itemRepo: repo, myCache: cache, valid: valid}
+	return &itemService{itemRepo: repo, myCache: cache, valid: valid}
 }
 
-func (s *ItemService) CreateItem(ctx context.Context, itemDto *models.Item) (models.Item, error) {
+func (s *itemService) CreateItem(ctx context.Context, itemDto *models.Item) (models.Item, error) {
 	if err := s.valid.StructCtx(ctx, itemDto); err != nil {
 		log.Printf("ERROR IN VALIDATE: %v\n", err)
 
@@ -43,7 +49,7 @@ func (s *ItemService) CreateItem(ctx context.Context, itemDto *models.Item) (mod
 
 }
 
-func (s *ItemService) GetItemByID(ctx context.Context, itemID int) (models.Item, error) {
+func (s *itemService) GetItemByID(ctx context.Context, itemID int) (models.Item, error) {
 
 	var item models.Item
 
@@ -72,7 +78,7 @@ func (s *ItemService) GetItemByID(ctx context.Context, itemID int) (models.Item,
 	return item, nil
 }
 
-func (s *ItemService) GetItemsByOrderID(ctx context.Context, orderID int) ([]models.Item, error) {
+func (s *itemService) GetItemsByOrderID(ctx context.Context, orderID int) ([]models.Item, error) {
 
 	var items []models.Item
 
