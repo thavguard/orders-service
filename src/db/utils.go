@@ -16,7 +16,7 @@ func IsRetryable(err error) bool {
 	}
 
 	msg := strings.ToLower(err.Error())
-	retryableErrors := []string{"deadlock", "timeout", "connection refused", "temporarily unavailable", "too many connections"}
+	retryableErrors := []string{"deadlock", "timeout", "connection refused", "temporarily unavailable", "too many connections", "failed to connect"}
 
 	for _, retryableErr := range retryableErrors {
 		if strings.Contains(msg, retryableErr) {

@@ -1,4 +1,19 @@
 services:
+  fill_data:
+    container_name: fill_data
+    build:
+      context: .
+      dockerfile: other/fill-data/Dockerfile.dev
+    env_file:
+      - other/fill-data/.env.dev
+    volumes:
+      - .:/app # монтируем проект внутрь контейнера
+      - /app/bin # для кеша бинарников
+    depends_on:
+      - kafka
+    stdin_open: true
+    tty: true
+
   orders_service:
     container_name: orders_service
     build:

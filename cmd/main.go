@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log"
+	filldata "orders/other/fill-data"
 	"orders/src/broker/consumers"
 	"orders/src/db"
 	"orders/src/db/repositories"
@@ -84,6 +85,12 @@ func main() {
 	// Подписка на топик
 	listener := consumers.NewOrderConsumer(met, tp, ordersService, deliveryService, itemService, paymentService)
 	listener.Run(ctx)
+
+	// FILL DATA [DEBUG]
+
+	go func(ctx context.Context) {
+		filldata.FillData(ctx)
+	}(ctx)
 
 	// Обработка закрытия  приложения
 	<-ctx.Done()

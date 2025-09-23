@@ -4,9 +4,9 @@
 
 ## Заполнение данных
 
-[Репозиторий с генератором](https://github.com/thavguard/orders-wb-generator)
+Скрипт для заполнения находится в `other/fill-data/main.go`, запускается автоматически в новой горутине при старте приложения
 
-## Setup .env
+## Run
 
 create `.env` file
 
